@@ -63,6 +63,7 @@ export function createPushToTalkController({
 
 	const handleKeyUp = (event: KeyboardEvent) => {
 		if (event.code !== 'Space') return
+		if (!isPressed) return
 		event.preventDefault()
 		void release()
 	}

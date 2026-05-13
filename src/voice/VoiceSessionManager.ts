@@ -304,80 +304,85 @@ export class RealtimeVoiceSessionManager implements VoiceSessionManager {
 	}
 
 	private async connectRealtime() {
-		const token = await this.fetchEphemeralToken()
-		if (!token) {
-			this.isMockMode = true
-			this.setState('idle')
-			return
-		}
+		try {
+			const token = await this.fetchEphemeralToken()
+			if (!token) {
+				this.isMockMode = true
+				this.setState('idle')
+				return
+			}
 
-		const peerConnection = new RTCPeerConnection()
-		this.peerConnection = peerConnection
+			const peerConnection = new RTCPeerConnection()
+			this.peerConnection = peerConnection
 
-		this.audioElement = document.createElement('audio')
-		this.audioElement.autoplay = true
-		this.audioElement.hidden = true
-		document.body.appendChild(this.audioElement)
+			this.audioElement = document.createElement('audio')
+			this.audioElement.autoplay = true
+			this.audioElement.hidden = true
+			document.body.appendChild(this.audioElement)
 
-		peerConnection.addEventListener('track', (event) => {
-			if (this.audioElement) this.audioElement.srcObject = event.streams[0]
-			this.setState('responding')
-		})
+			peerConnection.addEventListener('track', (event) => {
+				if (this.audioElement) this.audioElement.srcObject = event.streams[0]
+				this.setState('responding')
+			})
 
-		this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-		const [track] = this.mediaStream.getAudioTracks()
-		if (!track) throw createError('No microphone audio track was available.')
-		track.enabled = false
-		this.microphoneTrack = track
-		peerConnection.addTrack(track, this.mediaStream)
+			this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+			const [track] = this.mediaStream.getAudioTracks()
+			if (!track) throw createError('No microphone audio track was available.')
+			track.enabled = false
+			this.microphoneTrack = track
+			peerConnection.addTrack(track, this.mediaStream)
 
-		this.dataChannel = peerConnection.createDataChannel('oai-events')
-		this.dataChannel.addEventListener('open', () => {
-			this.sendRealtimeEvent({
-				type: 'session.update',
-				session: {
-					type: 'realtime',
-					model: this.config.model,
-					audio: {
-						output: { voice: this.config.voice },
-						input: {
-							transcription: { model: 'gpt-4o-mini-transcribe' },
-							turn_detection: null,
+			this.dataChannel = peerConnection.createDataChannel('oai-events')
+			this.dataChannel.addEventListener('open', () => {
+				this.sendRealtimeEvent({
+					type: 'session.update',
+					session: {
+						type: 'realtime',
+						model: this.config.model,
+						audio: {
+							output: { voice: this.config.voice },
+							input: {
+								transcription: { model: 'gpt-4o-mini-transcribe' },
+								turn_detection: null,
+							},
 						},
+						tools: realtimeTools,
+						tool_choice: 'auto',
 					},
-					tools: realtimeTools,
-					tool_choice: 'auto',
+				})
+			})
+			this.dataChannel.addEventListener('message', (message) => this.handleDataChannelMessage(message))
+			this.dataChannel.addEventListener('error', () => {
+				this.options.onError?.(createError('OpenAI Realtime data channel failed.'))
+			})
+
+			const offer = await peerConnection.createOffer()
+			await peerConnection.setLocalDescription(offer)
+
+			if (!offer.sdp) throw createError('WebRTC offer did not include SDP.')
+
+			const response = await fetch(realtimeUrl, {
+				method: 'POST',
+				body: offer.sdp,
+				headers: {
+					Authorization: `Bearer ${token}`,
+					'Content-Type': 'application/sdp',
 				},
 			})
-		})
-		this.dataChannel.addEventListener('message', (message) => this.handleDataChannelMessage(message))
-		this.dataChannel.addEventListener('error', () => {
-			this.options.onError?.(createError('OpenAI Realtime data channel failed.'))
-		})
 
-		const offer = await peerConnection.createOffer()
-		await peerConnection.setLocalDescription(offer)
+			if (!response.ok) {
+				throw createError(`OpenAI Realtime SDP exchange failed: ${response.status} ${response.statusText}`)
+			}
 
-		if (!offer.sdp) throw createError('WebRTC offer did not include SDP.')
-
-		const response = await fetch(realtimeUrl, {
-			method: 'POST',
-			body: offer.sdp,
-			headers: {
-				Authorization: `Bearer ${token}`,
-				'Content-Type': 'application/sdp',
-			},
-		})
-
-		if (!response.ok) {
-			throw createError(`OpenAI Realtime SDP exchange failed: ${response.status} ${response.statusText}`)
+			await peerConnection.setRemoteDescription({
+				type: 'answer',
+				sdp: await response.text(),
+			})
+			this.setState('idle')
+		} catch (error) {
+			this.disconnect()
+			throw error
 		}
-
-		await peerConnection.setRemoteDescription({
-			type: 'answer',
-			sdp: await response.text(),
-		})
-		this.setState('idle')
 	}
 
 	private async fetchEphemeralToken() {
@@ -430,8 +435,8 @@ export class RealtimeVoiceSessionManager implements VoiceSessionManager {
 		const action = parseVoiceToolAction(name, args)
 		if (!action) return
 
-		this.options.onToolAction?.(action)
 		if (callId) this.pendingToolCallIds.set(action, callId)
+		this.options.onToolAction?.(action)
 	}
 
 	private sendRealtimeEvent(event: unknown) {
