@@ -416,26 +416,14 @@ export class RealtimeVoiceSessionManager implements VoiceSessionManager {
 			case 'response.function_call_arguments.done':
 				this.handleToolCall(event.name, event.arguments, event.call_id)
 				break
-			case 'response.output_item.done':
-				if (event.item?.type === 'function_call') {
-					this.handleToolCall(event.item.name, event.item.arguments, event.item.call_id)
-				}
-				break
 			case 'response.audio.delta':
 			case 'response.audio_transcript.delta':
 				this.setState('responding')
 				break
 			case 'response.done':
-				this.handleResponseDone(event)
 				this.setState('idle')
 				break
 		}
-	}
-
-	private handleResponseDone(event: RealtimeDataChannelEvent) {
-		event.response?.output?.forEach((item) => {
-			if (item.type === 'function_call') this.handleToolCall(item.name, item.arguments, item.call_id)
-		})
 	}
 
 	private handleToolCall(name: string | undefined, args: string | undefined, callId: string | undefined) {
