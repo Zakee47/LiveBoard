@@ -3,7 +3,6 @@ import type {
 	TLCreateShapePartial,
 	TLDefaultColorStyle,
 	TLGeoShapeGeoStyle,
-	TLShape,
 	TLShapeId,
 } from 'tldraw'
 
@@ -135,11 +134,55 @@ export interface VoiceToolResult {
 	}>
 }
 
+export interface CompactCanvasShape {
+	id: TLShapeId
+	type: string
+	text?: string
+	bounds: BoxModel | null
+	center: { x: number; y: number } | null
+	parentId?: string
+	meta?: {
+		color?: string
+		fill?: string
+		geo?: string
+		name?: string
+	}
+}
+
+export interface SelectedCanvasShape extends CompactCanvasShape {
+	x: number
+	y: number
+	rotation: number
+	isLocked: boolean
+	opacity: number
+}
+
+export interface CanvasClusterSummary {
+	id: string
+	position: 'above' | 'below' | 'left' | 'right' | 'above-left' | 'above-right' | 'below-left' | 'below-right'
+	count: number
+	shapeTypes: Record<string, number>
+	bounds: BoxModel
+	sampleShapeIds: TLShapeId[]
+	sampleTexts: string[]
+}
+
 export interface CanvasSnapshot {
-	shapes: TLShape[]
 	selectedShapeIds: TLShapeId[]
+	selectedShapes: SelectedCanvasShape[]
+	visibleShapes: CompactCanvasShape[]
 	viewportBounds: BoxModel
 	selectionBounds: BoxModel | null
+	clusters: CanvasClusterSummary[]
+	totalShapeCount: number
+	omittedShapeCount: number
+	generatedAt: number
+	screenshotBase64Png?: string
+}
+
+export interface CanvasContextUpdate {
+	reason: 'initial' | 'action_batch' | 'ptt_start' | 'canvas_change' | 'manual'
+	snapshot: CanvasSnapshot
 }
 
 export interface VoiceSessionConfig {
