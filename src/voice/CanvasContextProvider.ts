@@ -253,7 +253,7 @@ async function createScreenshotBase64Png(
 	if (exportShapeIds.length === 0) return undefined
 	const { url } = await editor.toImageDataUrl(exportShapeIds, {
 		background: false,
-		bounds: getScreenshotBounds(editor, focus, pageShapeIds, viewportBounds),
+		bounds: getScreenshotBounds(editor, focus, selectedShapeIds, pageShapeIds, viewportBounds),
 		format: 'png',
 		padding: 16,
 		pixelRatio: 1,
@@ -275,10 +275,11 @@ function getScreenshotShapeIds(
 function getScreenshotBounds(
 	editor: Editor,
 	focus: 'selection' | 'viewport' | 'canvas',
+	selectedShapeIds: TLShapeId[],
 	pageShapeIds: TLShapeId[],
 	viewportBounds: Box
 ) {
-	if (focus === 'selection') return undefined
+	if (focus === 'selection' && selectedShapeIds.length > 0) return undefined
 	if (focus === 'canvas') return editor.getShapesPageBounds(pageShapeIds) ?? editor.getCurrentPageBounds()
 	return viewportBounds
 }
