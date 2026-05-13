@@ -6,7 +6,9 @@
 	"scripts": {
 		"build": "vite build",
 		"dev": "vite",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		"qa:voiceboard": "tsx scripts/voiceboard-qa-harness.ts",
+		"test": "npm run qa:voiceboard"
 	},
 	"dependencies": {
 		"@ai-sdk/anthropic": "^2.0.2",
