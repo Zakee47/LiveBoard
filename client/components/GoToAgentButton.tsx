@@ -54,7 +54,7 @@ export function GoToAgentButton({ agent }: { agent: TldrawAgent }) {
 		'angleToAgent',
 		() => {
 			if (!agentViewport) return
-			if (agentIsOffscreen) return
+			if (!agentIsOffscreen) return
 
 			const agentCenter = Box.From(agentViewport).center
 			const agentScreenCenter = editor.pageToViewport(agentCenter)
