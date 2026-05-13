@@ -9,7 +9,7 @@
 		"dev:proxy": "tsx server/proxy.ts",
 		"lint": "npm run typecheck",
 		"preview": "vite preview",
-		"test": "tsx --test src/**/*.test.ts",
+		"test": "tsx --test --test-force-exit src/**/*.test.ts",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
