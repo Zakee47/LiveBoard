@@ -8,6 +8,8 @@
 		"dev": "vite",
 		"dev:proxy": "tsx server/proxy.ts",
 		"preview": "vite preview",
+		"qa:voiceboard": "tsx scripts/voiceboard-qa-harness.ts",
+		"test": "npm run qa:voiceboard",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
