@@ -1,13 +1,19 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { createShapeId } from 'tldraw'
 import { createCanvasContextDebugText } from './CanvasContextProvider'
 import type { CanvasSnapshot } from './types'
 
+const selectedShapeId = createShapeId('selected')
+const visibleNoteShapeId = createShapeId('visible-note')
+const offscreenShapeId1 = createShapeId('offscreen-1')
+const offscreenShapeId2 = createShapeId('offscreen-2')
+
 const payload: CanvasSnapshot = {
-	selectedShapeIds: ['shape:selected'],
+	selectedShapeIds: [selectedShapeId],
 	selectedShapes: [
 		{
-			id: 'shape:selected',
+			id: selectedShapeId,
 			type: 'geo',
 			text: 'Launch plan',
 			bounds: { x: 10, y: 20, w: 200, h: 100 },
@@ -23,7 +29,7 @@ const payload: CanvasSnapshot = {
 	],
 	visibleShapes: [
 		{
-			id: 'shape:selected',
+			id: selectedShapeId,
 			type: 'geo',
 			text: 'Launch plan',
 			bounds: { x: 10, y: 20, w: 200, h: 100 },
@@ -32,7 +38,7 @@ const payload: CanvasSnapshot = {
 			meta: { color: 'blue', fill: 'semi', geo: 'rectangle' },
 		},
 		{
-			id: 'shape:visible-note',
+			id: visibleNoteShapeId,
 			type: 'note',
 			text: 'Risk: timeline',
 			bounds: { x: 280, y: 30, w: 160, h: 160 },
@@ -50,7 +56,7 @@ const payload: CanvasSnapshot = {
 			count: 8,
 			shapeTypes: { geo: 5, text: 3 },
 			bounds: { x: 3200, y: 120, w: 900, h: 400 },
-			sampleShapeIds: ['shape:offscreen-1', 'shape:offscreen-2'],
+			sampleShapeIds: [offscreenShapeId1, offscreenShapeId2],
 			sampleTexts: ['Future ideas'],
 		},
 	],

@@ -166,7 +166,7 @@ function App() {
 		if (editor) {
 			const contextProvider = createCanvasContextProvider({ editor })
 			const actionBridge = createActionBridge({ editor })
-			const snapshot = contextProvider.getSnapshot()
+			const snapshot = await contextProvider.getSnapshot()
 			const result = await actionBridge.execute({
 				type: 'create_shapes',
 				shapes: [

@@ -22,6 +22,7 @@ import {
 } from 'tldraw'
 import type {
 	ConnectShapesAction,
+	CritiqueCanvasAction,
 	DeleteShapesAction,
 	LayoutShapesAction,
 	ShapeReference,
@@ -655,7 +656,7 @@ async function sendContextAfterActionBatch(
 	return result
 }
 
-function buildStructuredCanvasCritique(focus: NonNullable<VoiceToolAction['focus']>, context: string) {
+function buildStructuredCanvasCritique(focus: NonNullable<CritiqueCanvasAction['focus']>, context: string) {
 	return [
 		`Canvas critique (${focus})`,
 		'',
