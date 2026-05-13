@@ -20,22 +20,24 @@ export function createPushToTalkController({
 	onStop,
 	onContextRequest,
 }: PushToTalkControllerOptions): PushToTalkController {
+	const start = async () => {
+		await onContextRequest?.()
+		await onStart()
+	}
+	const stop = async () => {
+		await onStop()
+	}
 	return {
 		get state() {
 			return getState()
 		},
-		async start() {
-			await onContextRequest?.()
-			await onStart()
-		},
-		async stop() {
-			await onStop()
-		},
+		start,
+		stop,
 		async toggle() {
 			if (getState() === 'idle') {
-				await onStart()
+				await start()
 			} else {
-				await onStop()
+				await stop()
 			}
 		},
 	}

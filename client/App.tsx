@@ -100,8 +100,12 @@ function App() {
 	}, [])
 
 	const handleVoiceToggle = useCallback(async () => {
+		const contextProvider = editor ? createCanvasContextProvider({ editor }) : null
 		const controller = createPushToTalkController({
 			getState: () => sessionRef.current.state,
+			onContextRequest: async () => {
+				await contextProvider?.sendContext('ptt_start')
+			},
 			onStart: async () => {
 				await sessionRef.current.connect()
 			},
@@ -109,8 +113,12 @@ function App() {
 				sessionRef.current.disconnect()
 			},
 		})
-		await controller.toggle()
-	}, [])
+		try {
+			await controller.toggle()
+		} finally {
+			contextProvider?.dispose()
+		}
+	}, [editor])
 
 	const handleMockPrompt = useCallback(async () => {
 		if (voiceState === 'idle') {
@@ -119,26 +127,31 @@ function App() {
 
 		if (editor) {
 			const contextProvider = createCanvasContextProvider({ editor })
-			const actionBridge = createActionBridge({ editor })
-			const snapshot = await contextProvider.getSnapshot()
-			const result = await actionBridge.execute({
-				type: 'create_shapes',
-				shapes: [
-					{
-						id: createShapeId(),
-						type: 'geo',
-						x: snapshot.viewportBounds.x + 96,
-						y: snapshot.viewportBounds.y + 96,
-						props: {
-							geo: 'rectangle',
-							w: 220,
-							h: 96,
-							richText: toRichText('Mock voice action'),
+			try {
+				const actionBridge = createActionBridge({ editor, canvasContext: contextProvider })
+				const snapshot = await contextProvider.getSnapshot()
+				await actionBridge.execute({
+					type: 'create_shapes',
+					shapes: [
+						{
+							id: createShapeId(),
+							type: 'geo',
+							x: snapshot.viewportBounds.x + 96,
+							y: snapshot.viewportBounds.y + 96,
+							props: {
+								geo: 'rectangle',
+								w: 220,
+								h: 96,
+								richText: toRichText('Mock voice action'),
+							},
 						},
-					},
-				],
-			})
-			sessionRef.current.sendToolResult({ type: 'critique_canvas', focus: 'viewport' }, result)
+					],
+				})
+				const critique = await actionBridge.execute({ type: 'critique_canvas', focus: 'viewport' })
+				sessionRef.current.sendToolResult({ type: 'critique_canvas', focus: 'viewport' }, critique)
+			} finally {
+				contextProvider.dispose()
+			}
 		}
 
 		await sessionRef.current.sendText('Create a simple sticky-note idea on the board.')
