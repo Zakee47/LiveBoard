@@ -278,7 +278,7 @@ function getShapeText(editor: Editor, shape: TLShape): string | undefined {
 	return undefined
 }
 
-function getShapeMeta(shape: TLShape): CompactCanvasShape['meta'] {
+function getShapeMeta(shape: TLShape): NonNullable<CompactCanvasShape['meta']> {
 	const props = shape.props
 	return {
 		...('color' in props && typeof props.color === 'string' ? { color: props.color } : {}),

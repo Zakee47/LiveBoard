@@ -1,6 +1,6 @@
 import type { Editor } from 'tldraw'
 import { createCanvasContextDebugText, type CanvasContextProvider } from './CanvasContextProvider'
-import type { VoiceToolAction } from './types'
+import type { CritiqueCanvasAction, VoiceToolAction } from './types'
 
 export interface ActionBridge {
 	execute(action: VoiceToolAction): Promise<string>
@@ -58,7 +58,7 @@ export function createActionBridge({
 	}
 }
 
-function buildStructuredCanvasCritique(focus: NonNullable<VoiceToolAction['focus']>, context: string) {
+function buildStructuredCanvasCritique(focus: NonNullable<CritiqueCanvasAction['focus']>, context: string) {
 	return [
 		`Canvas critique (${focus})`,
 		'',
