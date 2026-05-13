@@ -248,19 +248,39 @@ async function createScreenshotBase64Png(
 	selectedShapeIds: TLShapeId[],
 	viewportBounds: Box
 ): Promise<string | undefined> {
-	const exportShapeIds =
-		focus === 'selection' && selectedShapeIds.length > 0
-			? selectedShapeIds
-			: [...editor.getShapeIdsInsideBounds(viewportBounds)]
+	const pageShapeIds = [...editor.getCurrentPageShapeIds()]
+	const exportShapeIds = getScreenshotShapeIds(editor, focus, selectedShapeIds, viewportBounds)
 	if (exportShapeIds.length === 0) return undefined
 	const { url } = await editor.toImageDataUrl(exportShapeIds, {
 		background: false,
-		bounds: focus === 'selection' ? undefined : viewportBounds,
+		bounds: getScreenshotBounds(editor, focus, pageShapeIds, viewportBounds),
 		format: 'png',
 		padding: 16,
 		pixelRatio: 1,
 	})
 	return url.replace(/^data:image\/png;base64,/, '')
+}
+
+function getScreenshotShapeIds(
+	editor: Editor,
+	focus: 'selection' | 'viewport' | 'canvas',
+	selectedShapeIds: TLShapeId[],
+	viewportBounds: Box
+) {
+	if (focus === 'selection' && selectedShapeIds.length > 0) return selectedShapeIds
+	if (focus === 'canvas') return [...editor.getCurrentPageShapeIds()]
+	return [...editor.getShapeIdsInsideBounds(viewportBounds)]
+}
+
+function getScreenshotBounds(
+	editor: Editor,
+	focus: 'selection' | 'viewport' | 'canvas',
+	pageShapeIds: TLShapeId[],
+	viewportBounds: Box
+) {
+	if (focus === 'selection') return undefined
+	if (focus === 'canvas') return editor.getShapesPageBounds(pageShapeIds) ?? editor.getCurrentPageBounds()
+	return viewportBounds
 }
 
 function getShapeText(editor: Editor, shape: TLShape): string | undefined {
