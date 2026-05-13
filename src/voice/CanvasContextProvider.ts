@@ -154,10 +154,7 @@ async function buildCanvasSnapshot(
 		selectionBounds: selectionBounds ? selectionBounds.toJson() : null,
 		clusters,
 		totalShapeCount: allShapes.length,
-		omittedShapeCount: Math.max(
-			0,
-			allShapes.length - visibleShapes.length - selectedShapes.length - countClusteredShapes(clusters)
-		),
+		omittedShapeCount: countOmittedShapes(allShapes.length, visibleShapes, selectedShapes, clusters),
 		generatedAt: Date.now(),
 		screenshotBase64Png,
 	}
@@ -305,6 +302,18 @@ function toRoundedBounds(bounds: BoxModel): BoxModel {
 		w: round(bounds.w),
 		h: round(bounds.h),
 	}
+}
+
+function countOmittedShapes(
+	totalShapeCount: number,
+	visibleShapes: CompactCanvasShape[],
+	selectedShapes: SelectedCanvasShape[],
+	clusters: CanvasClusterSummary[]
+) {
+	const detailedShapeIds = new Set<TLShapeId>()
+	for (const shape of visibleShapes) detailedShapeIds.add(shape.id)
+	for (const shape of selectedShapes) detailedShapeIds.add(shape.id)
+	return Math.max(0, totalShapeCount - detailedShapeIds.size - countClusteredShapes(clusters))
 }
 
 function countClusteredShapes(clusters: CanvasClusterSummary[]) {
