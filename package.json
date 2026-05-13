@@ -7,7 +7,9 @@
 		"build": "vite build",
 		"dev": "vite",
 		"dev:proxy": "tsx server/proxy.ts",
+		"lint": "npm run typecheck",
 		"preview": "vite preview",
+		"test": "tsx --test src/**/*.test.ts",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {

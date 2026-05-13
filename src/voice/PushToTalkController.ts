@@ -11,18 +11,21 @@ export interface PushToTalkControllerOptions {
 	getState: () => VoiceState
 	onStart: () => Promise<void> | void
 	onStop: () => Promise<void> | void
+	onContextRequest?: () => Promise<void> | void
 }
 
 export function createPushToTalkController({
 	getState,
 	onStart,
 	onStop,
+	onContextRequest,
 }: PushToTalkControllerOptions): PushToTalkController {
 	return {
 		get state() {
 			return getState()
 		},
 		async start() {
+			await onContextRequest?.()
 			await onStart()
 		},
 		async stop() {
