@@ -174,13 +174,14 @@ export class MockVoiceSessionManager implements VoiceSessionManager {
 	async sendText(text: string) {
 		this.options.onTranscript?.(text, 'user')
 		this.setState('processing')
-		await Promise.resolve()
+		await wait(650)
 		this.setState('responding')
 		this.options.onTranscript?.(
 			'Mock realtime session received your prompt. WebRTC integration will replace this stub.',
 			'assistant'
 		)
-		this.setState('listening')
+		await wait(850)
+		this.setState('idle')
 	}
 
 	sendToolResult(_action: VoiceToolAction, result: VoiceToolResult) {

@@ -16,6 +16,7 @@ export interface TranscriptEntry {
 	text: string
 	createdAt: number
 	isFinal: boolean
+	kind?: 'message' | 'function' | 'status'
 }
 
 export type VoiceToolName =
