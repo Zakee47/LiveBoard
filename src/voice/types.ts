@@ -1,4 +1,11 @@
-import type { BoxModel, TLCreateShapePartial, TLShape, TLShapeId, TLShapePartial } from 'tldraw'
+import type {
+	BoxModel,
+	TLCreateShapePartial,
+	TLDefaultColorStyle,
+	TLGeoShapeGeoStyle,
+	TLShape,
+	TLShapeId,
+} from 'tldraw'
 
 export type VoiceState = 'idle' | 'listening' | 'processing' | 'responding'
 
@@ -16,32 +23,87 @@ export type VoiceToolName =
 	| 'create_shapes'
 	| 'update_shapes'
 	| 'delete_shapes'
+	| 'connect_shapes'
 	| 'layout_shapes'
 	| 'critique_canvas'
 
+export type VoiceShapeKind = 'geo' | 'text' | 'note' | 'arrow'
+
+export type ShapeReference = TLShapeId | 'selected' | 'this' | 'these'
+
+export type ShapeTarget =
+	| {
+			shapeId: ShapeReference
+	  }
+	| {
+			name: string
+	  }
+
+export interface VoiceShapeInput {
+	id?: string
+	shapeId?: string
+	type: VoiceShapeKind
+	text?: string
+	color?: TLDefaultColorStyle
+	x?: number
+	y?: number
+	w?: number
+	h?: number
+	geo?: TLGeoShapeGeoStyle
+	arrowFromId?: ShapeReference
+	arrowToId?: ShapeReference
+	arrowFromName?: string
+	arrowToName?: string
+	props?: TLCreateShapePartial['props']
+}
+
+export interface VoiceShapeUpdate {
+	shapeId?: ShapeReference
+	name?: string
+	text?: string
+	color?: TLDefaultColorStyle
+	x?: number
+	y?: number
+	w?: number
+	h?: number
+}
+
 export interface CreateShapesAction {
 	type: 'create_shapes'
-	shapes: TLCreateShapePartial[]
+	shapes: VoiceShapeInput[]
 }
 
 export interface UpdateShapesAction {
 	type: 'update_shapes'
-	shapes: TLShapePartial[]
+	shapes: VoiceShapeUpdate[]
 }
 
 export interface DeleteShapesAction {
 	type: 'delete_shapes'
-	shapeIds: TLShapeId[]
+	shapeIds?: ShapeReference[]
+	names?: string[]
+	target?: 'selected'
 }
 
-export type LayoutOperation = 'align' | 'distribute' | 'pack'
+export interface ConnectShapesAction {
+	type: 'connect_shapes'
+	shapeId?: string
+	arrowFromId?: ShapeReference
+	arrowToId?: ShapeReference
+	arrowFromName?: string
+	arrowToName?: string
+	text?: string
+	color?: TLDefaultColorStyle
+}
+
+export type LayoutOperation = 'auto' | 'top-down' | 'left-right' | 'grid' | 'radial'
 
 export interface LayoutShapesAction {
 	type: 'layout_shapes'
-	shapeIds: TLShapeId[]
+	shapeIds?: ShapeReference[]
+	names?: string[]
+	scope?: 'selected' | 'all'
 	operation: LayoutOperation
-	axis?: 'horizontal' | 'vertical'
-	alignment?: 'top' | 'bottom' | 'left' | 'right' | 'center-horizontal' | 'center-vertical'
 	gap?: number
 }
 
@@ -54,8 +116,23 @@ export type VoiceToolAction =
 	| CreateShapesAction
 	| UpdateShapesAction
 	| DeleteShapesAction
+	| ConnectShapesAction
 	| LayoutShapesAction
 	| CritiqueCanvasAction
+
+export type VoiceToolResultStatus = 'ok' | 'clarification' | 'error'
+
+export interface VoiceToolResult {
+	status: VoiceToolResultStatus
+	message: string
+	shapeIds?: TLShapeId[]
+	clarification?: string
+	matches?: Array<{
+		shapeId: TLShapeId
+		text: string
+		type: string
+	}>
+}
 
 export interface CanvasSnapshot {
 	shapes: TLShape[]
