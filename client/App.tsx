@@ -7,8 +7,6 @@ import {
 	Tldraw,
 	TldrawUiToastsProvider,
 	TLUiOverrides,
-	createShapeId,
-	toRichText,
 } from 'tldraw'
 import { TldrawAgentApp } from './agent/TldrawAgentApp'
 import {
@@ -128,40 +126,46 @@ function App() {
 		return () => window.cancelAnimationFrame(frameId)
 	}, [voiceState])
 
-	const voiceController = useMemo(
-		() =>
-			createPushToTalkController({
-				getState: () => sessionRef.current.state,
-				onContextRequest: async () => {
-					if (!editor) return
-					const contextProvider = createCanvasContextProvider({ editor })
-					try {
-						await contextProvider.sendContext('ptt_start')
-					} finally {
-						contextProvider.dispose()
-					}
-				},
-				onStart: async () => {
-					await sessionRef.current.startListening()
-				},
-				onStop: async () => {
-					await sessionRef.current.release()
-				},
-			}),
-		[editor]
-	)
+	const voiceControllerRef = useRef<ReturnType<typeof createPushToTalkController> | null>(null)
+
+	useEffect(() => {
+		const controller = createPushToTalkController({
+			getState: () => sessionRef.current.state,
+			onContextRequest: async () => {
+				if (!editor) return
+				const contextProvider = createCanvasContextProvider({ editor })
+				try {
+					await contextProvider.sendContext('ptt_start')
+				} finally {
+					contextProvider.dispose()
+				}
+			},
+			onStart: async () => {
+				await sessionRef.current.startListening()
+			},
+			onStop: async () => {
+				await sessionRef.current.release()
+			},
+		})
+		voiceControllerRef.current = controller
+
+		return () => {
+			controller.destroy()
+			if (voiceControllerRef.current === controller) voiceControllerRef.current = null
+		}
+	}, [editor])
 
 	const handleVoiceHoldStart = useCallback(async () => {
 		if (sessionRef.current.state === 'idle') {
-			await voiceController.start()
+			await voiceControllerRef.current?.start()
 		}
-	}, [voiceController])
+	}, [])
 
 	const handleVoiceHoldEnd = useCallback(async () => {
 		if (sessionRef.current.state === 'listening') {
-			await voiceController.stop()
+			await voiceControllerRef.current?.stop()
 		}
-	}, [voiceController])
+	}, [])
 
 	const handleMockPrompt = useCallback(async () => {
 		if (voiceState === 'idle') {
@@ -174,42 +178,33 @@ function App() {
 				const actionBridge = createActionBridge({ editor, canvasContext: contextProvider })
 				const snapshot = await contextProvider.getSnapshot()
 				const result = await actionBridge.execute({
-				type: 'create_shapes',
-				shapes: [
-					{
-						id: createShapeId(),
-						type: 'geo',
-						x: snapshot.viewportBounds.x + 96,
-						y: snapshot.viewportBounds.y + 96,
-						props: {
-							geo: 'rectangle',
+					type: 'create_shapes',
+					shapes: [
+						{
+							type: 'geo',
+							x: snapshot.viewportBounds.x + 96,
+							y: snapshot.viewportBounds.y + 96,
 							w: 220,
 							h: 96,
-							richText: toRichText('Mock voice action'),
+							geo: 'rectangle',
+							text: 'Mock voice action',
 						},
-					},
-					{
-						id: createShapeId(),
-						type: 'geo',
-						x: snapshot.viewportBounds.x + 348,
-						y: snapshot.viewportBounds.y + 96,
-						props: {
-							geo: 'ellipse',
+						{
+							type: 'geo',
+							x: snapshot.viewportBounds.x + 348,
+							y: snapshot.viewportBounds.y + 96,
 							w: 144,
 							h: 96,
-							richText: toRichText('Idea'),
+							geo: 'ellipse',
+							text: 'Idea',
 						},
-					},
-					{
-						id: createShapeId(),
-						type: 'note',
-						x: snapshot.viewportBounds.x + 96,
-						y: snapshot.viewportBounds.y + 232,
-						props: {
-							richText: toRichText('Voice note'),
+						{
+							type: 'note',
+							x: snapshot.viewportBounds.x + 96,
+							y: snapshot.viewportBounds.y + 232,
+							text: 'Voice note',
 						},
-					},
-				],
+					],
 				})
 				addTranscriptEntry({
 					role: 'system',
