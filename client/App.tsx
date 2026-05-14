@@ -157,15 +157,11 @@ function App() {
 	}, [editor])
 
 	const handleVoiceHoldStart = useCallback(async () => {
-		if (sessionRef.current.state === 'idle') {
-			await voiceControllerRef.current?.start()
-		}
+		await voiceControllerRef.current?.start()
 	}, [])
 
 	const handleVoiceHoldEnd = useCallback(async () => {
-		if (sessionRef.current.state === 'listening') {
-			await voiceControllerRef.current?.stop()
-		}
+		await voiceControllerRef.current?.stop()
 	}, [])
 
 	const handleMockPrompt = useCallback(async () => {

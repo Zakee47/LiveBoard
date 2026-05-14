@@ -73,3 +73,66 @@ test('start does not begin listening outside idle state', async () => {
 	assert.deepEqual(calls, [])
 	assert.equal(state, 'processing')
 })
+
+test('release during context request prevents late start', async () => {
+	const calls: string[] = []
+	let state: VoiceState = 'idle'
+	let resolveContext: (() => void) | undefined
+	const contextRequest = new Promise<void>((resolve) => {
+		resolveContext = resolve
+	})
+	const controller = createPushToTalkController({
+		getState: () => state,
+		onContextRequest: async () => {
+			calls.push('context')
+			await contextRequest
+		},
+		onStart: () => {
+			calls.push('start')
+			state = 'listening'
+		},
+		onStop: () => {
+			calls.push('stop')
+			state = 'idle'
+		},
+	})
+
+	const start = controller.start()
+	await Promise.resolve()
+	await controller.stop()
+	resolveContext?.()
+	await start
+
+	assert.deepEqual(calls, ['context', 'stop'])
+	assert.equal(state, 'idle')
+})
+
+test('release during start request stops after late start completes', async () => {
+	const calls: string[] = []
+	let state: VoiceState = 'idle'
+	let resolveStart: (() => void) | undefined
+	const startRequest = new Promise<void>((resolve) => {
+		resolveStart = resolve
+	})
+	const controller = createPushToTalkController({
+		getState: () => state,
+		onStart: async () => {
+			calls.push('start')
+			await startRequest
+			state = 'listening'
+		},
+		onStop: () => {
+			calls.push('stop')
+			state = 'idle'
+		},
+	})
+
+	const start = controller.start()
+	await Promise.resolve()
+	await controller.stop()
+	resolveStart?.()
+	await start
+
+	assert.deepEqual(calls, ['start', 'stop', 'stop'])
+	assert.equal(state, 'idle')
+})

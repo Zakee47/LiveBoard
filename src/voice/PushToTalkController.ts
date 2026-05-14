@@ -51,7 +51,9 @@ export function createPushToTalkController({
 		isPressed = true
 		try {
 			await onContextRequest?.()
+			if (!isPressed) return
 			await onStart()
+			if (!isPressed) await onStop()
 		} catch (error) {
 			isPressed = false
 			throw error
