@@ -62,6 +62,7 @@ type RealtimeTokenResponse = {
 }
 
 const realtimeUrl = 'https://api.openai.com/v1/realtime/calls'
+const wait = (duration: number) => new Promise((resolve) => window.setTimeout(resolve, duration))
 
 function createError(message: string) {
 	return new Error(message)
