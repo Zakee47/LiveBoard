@@ -1,8 +1,10 @@
-import type { TLCreateShapePartial, TLShapeId, TLShapePartial } from 'tldraw'
 import { realtimeTools } from './tools'
 import type {
 	LayoutOperation,
+	ShapeReference,
 	VoiceSessionConfig,
+	VoiceShapeInput,
+	VoiceShapeUpdate,
 	VoiceState,
 	VoiceToolAction,
 	VoiceToolName,
@@ -86,30 +88,36 @@ function parseVoiceToolAction(name: string | undefined, args: string | undefined
 	switch (name as VoiceToolName) {
 		case 'create_shapes':
 			if (!Array.isArray(body.shapes)) return null
-			return { type: 'create_shapes', shapes: body.shapes as TLCreateShapePartial[] }
+			return { type: 'create_shapes', shapes: body.shapes as VoiceShapeInput[] }
 		case 'update_shapes':
 			if (!Array.isArray(body.shapes)) return null
-			return { type: 'update_shapes', shapes: body.shapes as TLShapePartial[] }
+			return { type: 'update_shapes', shapes: body.shapes as VoiceShapeUpdate[] }
 		case 'delete_shapes':
-			if (!Array.isArray(body.shapeIds)) return null
-			return { type: 'delete_shapes', shapeIds: body.shapeIds as TLShapeId[] }
+			return {
+				type: 'delete_shapes',
+				shapeIds: Array.isArray(body.shapeIds) ? (body.shapeIds as ShapeReference[]) : undefined,
+				names: Array.isArray(body.names) ? (body.names as string[]) : undefined,
+				target: body.target === 'selected' ? 'selected' : undefined,
+			}
+		case 'connect_shapes':
+			return {
+				type: 'connect_shapes',
+				shapeId: typeof body.shapeId === 'string' ? body.shapeId : undefined,
+				arrowFromId: typeof body.arrowFromId === 'string' ? (body.arrowFromId as ShapeReference) : undefined,
+				arrowToId: typeof body.arrowToId === 'string' ? (body.arrowToId as ShapeReference) : undefined,
+				arrowFromName: typeof body.arrowFromName === 'string' ? body.arrowFromName : undefined,
+				arrowToName: typeof body.arrowToName === 'string' ? body.arrowToName : undefined,
+				text: typeof body.text === 'string' ? body.text : undefined,
+				color: typeof body.color === 'string' ? (body.color as VoiceShapeInput['color']) : undefined,
+			}
 		case 'layout_shapes':
-			if (!Array.isArray(body.shapeIds) || typeof body.operation !== 'string') return null
+			if (typeof body.operation !== 'string') return null
 			return {
 				type: 'layout_shapes',
-				shapeIds: body.shapeIds as TLShapeId[],
+				shapeIds: Array.isArray(body.shapeIds) ? (body.shapeIds as ShapeReference[]) : undefined,
+				names: Array.isArray(body.names) ? (body.names as string[]) : undefined,
+				scope: body.scope === 'selected' || body.scope === 'all' ? body.scope : undefined,
 				operation: body.operation as LayoutOperation,
-				axis: typeof body.axis === 'string' ? (body.axis as 'horizontal' | 'vertical') : undefined,
-				alignment:
-					typeof body.alignment === 'string'
-						? (body.alignment as
-								| 'top'
-								| 'bottom'
-								| 'left'
-								| 'right'
-								| 'center-horizontal'
-								| 'center-vertical')
-						: undefined,
 				gap: typeof body.gap === 'number' ? body.gap : undefined,
 			}
 		case 'critique_canvas':
