@@ -143,6 +143,8 @@ function parseVoiceToolAction(name: string | undefined, args: string | undefined
 	}
 }
 
+const wait = (duration: number) => new Promise((resolve) => window.setTimeout(resolve, duration))
+
 export class MockVoiceSessionManager implements VoiceSessionManager {
 	state: VoiceState = 'idle'
 	readonly config: VoiceSessionConfig
@@ -191,12 +193,13 @@ export class MockVoiceSessionManager implements VoiceSessionManager {
 	async sendText(text: string) {
 		this.options.onTranscript?.(text, 'user')
 		this.setState('processing')
-		await Promise.resolve()
+		await wait(650)
 		this.setState('responding')
 		this.options.onTranscript?.(
 			'Mock realtime session received your prompt. WebRTC integration will replace this stub.',
 			'assistant'
 		)
+		await wait(850)
 		this.setState('idle')
 	}
 
