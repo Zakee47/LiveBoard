@@ -151,7 +151,7 @@ function createShapes(editor: Editor, inputs: VoiceShapeInput[]): VoiceToolResul
 	for (const input of inputs) {
 		const shapeId = toNewShapeId(editor, input.shapeId ?? input.id)
 		if (!shapeId) {
-			return error(`Shape id "${input.shapeId}" is invalid or already exists.`)
+			return error(`Shape id "${input.shapeId ?? input.id}" is invalid or already exists.`)
 		}
 
 		if (input.type === 'arrow') {

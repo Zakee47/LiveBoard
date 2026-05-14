@@ -48,3 +48,28 @@ test('toggle does not request context when stopping', async () => {
 
 	assert.deepEqual(calls, ['stop'])
 })
+
+
+test('start does not begin listening outside idle state', async () => {
+	const calls: string[] = []
+	let state: VoiceState = 'processing'
+	const controller = createPushToTalkController({
+		getState: () => state,
+		onContextRequest: () => {
+			calls.push('context')
+		},
+		onStart: () => {
+			calls.push('start')
+			state = 'listening'
+		},
+		onStop: () => {
+			calls.push('stop')
+			state = 'idle'
+		},
+	})
+
+	await controller.start()
+
+	assert.deepEqual(calls, [])
+	assert.equal(state, 'processing')
+})

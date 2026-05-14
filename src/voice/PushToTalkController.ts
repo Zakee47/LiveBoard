@@ -47,6 +47,7 @@ export function createPushToTalkController({
 
 	const press = async () => {
 		if (isPressed) return
+		if (getState() !== 'idle') return
 		isPressed = true
 		try {
 			await onContextRequest?.()
