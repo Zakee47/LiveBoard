@@ -114,8 +114,10 @@ export function createPushToTalkController({
 		async toggle() {
 			if (getState() === 'idle') {
 				await press()
-			} else {
+			} else if (isPressed) {
 				await release()
+			} else {
+				await onStop()
 			}
 		},
 		destroy() {
