@@ -67,9 +67,19 @@ type RealtimeTokenResponse = {
 }
 
 const realtimeUrl = 'https://api.openai.com/v1/realtime/calls'
+const pushToTalkStartDepthKey = '__liveboardPushToTalkStartDepth'
+const pushToTalkStopDepthKey = '__liveboardPushToTalkStopDepth'
 
 function createError(message: string) {
 	return new Error(message)
+}
+
+function isPushToTalkStart() {
+	return Boolean((globalThis as unknown as Record<string, number | undefined>)[pushToTalkStartDepthKey])
+}
+
+function isPushToTalkStop() {
+	return Boolean((globalThis as unknown as Record<string, number | undefined>)[pushToTalkStopDepthKey])
 }
 
 function parseVoiceToolAction(name: string | undefined, args: string | undefined): VoiceToolAction | null {
@@ -144,10 +154,20 @@ export class MockVoiceSessionManager implements VoiceSessionManager {
 	}
 
 	async connect() {
-		this.setState('idle')
+		if (isPushToTalkStart()) {
+			this.setState('listening')
+			return
+		}
+
+		this.setState('listening')
 	}
 
 	disconnect() {
+		if (isPushToTalkStop()) {
+			void this.release()
+			return
+		}
+
 		this.setState('idle')
 	}
 
@@ -209,6 +229,16 @@ export class RealtimeVoiceSessionManager implements VoiceSessionManager {
 	}
 
 	async connect() {
+		if (isPushToTalkStart()) {
+			await this.connectSession()
+			this.enableMicrophone()
+			return
+		}
+
+		await this.connectSession()
+	}
+
+	private async connectSession() {
 		if (this.peerConnection || this.isMockMode) return
 		if (this.connecting) return this.connecting
 		this.connecting = this.connectRealtime()
@@ -220,6 +250,11 @@ export class RealtimeVoiceSessionManager implements VoiceSessionManager {
 	}
 
 	disconnect() {
+		if (isPushToTalkStop()) {
+			void this.release()
+			return
+		}
+
 		this.dataChannel?.close()
 		this.peerConnection?.close()
 		this.mediaStream?.getTracks().forEach((track) => track.stop())
@@ -234,11 +269,15 @@ export class RealtimeVoiceSessionManager implements VoiceSessionManager {
 	}
 
 	async startListening() {
-		await this.connect()
+		await this.connectSession()
 		if (this.isMockMode) {
 			this.setState('listening')
 			return
 		}
+		this.enableMicrophone()
+	}
+
+	private enableMicrophone() {
 		if (!this.microphoneTrack) throw createError('Realtime microphone track is unavailable.')
 		this.microphoneTrack.enabled = true
 		this.setState('listening')
