@@ -231,6 +231,10 @@ export class RealtimeVoiceSessionManager implements VoiceSessionManager {
 	async connect() {
 		if (isPushToTalkStart()) {
 			await this.connectSession()
+			if (this.isMockMode) {
+				this.setState('listening')
+				return
+			}
 			this.enableMicrophone()
 			return
 		}
