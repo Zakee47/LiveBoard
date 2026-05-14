@@ -829,9 +829,21 @@ button.prompt-tag span {
 	flex-direction: column;
 	height: 100vh;
 	overflow: hidden;
-	background: var(--tl-color-panel);
+	background: linear-gradient(180deg, hsl(220, 16%, 11%) 0%, var(--tl-color-panel) 42%);
 	border-left: 1px solid var(--tl-color-low);
 	color: var(--tl-color-text-1);
+}
+
+.voiceboard-sidebar .chat-panel {
+	min-height: 0;
+	flex: 1;
+	height: auto;
+	border-left: 0;
+	background: transparent;
+}
+
+.voiceboard-sidebar .chat-header {
+	padding: 0 8px;
 }
 
 .voiceboard-sidebar-header {
@@ -865,17 +877,27 @@ button.prompt-tag span {
 .state-indicator {
 	border: 1px solid var(--tl-color-low);
 	border-radius: 999px;
-	padding: 4px 8px;
+	padding: 6px 10px;
 	background: var(--tl-color-muted-1);
 	color: var(--tl-color-text-2);
 	font-size: 11px;
 	font-weight: 700;
-	text-transform: uppercase;
+	white-space: nowrap;
 }
 
-.state-indicator-listening,
+.state-indicator-listening {
+	border-color: hsl(356, 80%, 60%);
+	color: hsl(356, 85%, 70%);
+}
+
+.state-indicator-processing {
+	border-color: hsl(36, 96%, 58%);
+	color: hsl(40, 100%, 72%);
+}
+
 .state-indicator-responding {
-	color: var(--tl-color-primary);
+	border-color: hsl(214, 88%, 62%);
+	color: hsl(214, 100%, 75%);
 }
 
 .voice-activity {
@@ -889,6 +911,12 @@ button.prompt-tag span {
 	background: var(--tl-color-muted-1);
 }
 
+.voice-activity strong {
+	display: block;
+	margin-bottom: 2px;
+	font-size: 12px;
+}
+
 .voice-activity p {
 	margin: 0;
 	color: var(--tl-color-text-2);
@@ -896,25 +924,97 @@ button.prompt-tag span {
 }
 
 .voice-activity-ring {
-	width: 18px;
-	height: 18px;
+	position: relative;
+	width: 54px;
+	height: 54px;
+	flex: 0 0 auto;
 	border: 2px solid var(--tl-color-low);
 	border-radius: 999px;
+	transition:
+		border-color 160ms ease,
+		box-shadow 160ms ease,
+		transform 160ms ease;
+	transform: scale(calc(0.88 + var(--voice-level, 0) * 0.2));
 }
 
-.voice-activity-ring-listening,
-.voice-activity-ring-processing,
+.voice-activity-ring::before,
+.voice-activity-ring::after {
+	position: absolute;
+	inset: calc(4px - var(--voice-level, 0) * 8px);
+	content: '';
+	border: 1px solid currentColor;
+	border-radius: inherit;
+	opacity: calc(0.18 + var(--voice-level, 0) * 0.42);
+}
+
+.voice-activity-ring::after {
+	inset: calc(12px - var(--voice-level, 0) * 7px);
+	opacity: calc(0.14 + var(--voice-level, 0) * 0.34);
+}
+
+.voice-activity-ring span {
+	position: absolute;
+	inset: 17px;
+	border-radius: inherit;
+	background: currentColor;
+	opacity: 0.86;
+}
+
+.voice-activity-ring-idle {
+	color: hsl(220, 8%, 62%);
+}
+
+.voice-activity-ring-listening {
+	color: hsl(356, 86%, 62%);
+	border-color: currentColor;
+	box-shadow: 0 0 0 calc(4px + var(--voice-level, 0) * 12px)
+		color-mix(in srgb, currentColor, transparent 86%);
+}
+
+.voice-activity-ring-processing {
+	color: hsl(38, 98%, 62%);
+	border-color: currentColor;
+	box-shadow: 0 0 0 5px color-mix(in srgb, currentColor, transparent 84%);
+}
+
+.voice-activity-ring-processing span {
+	background: transparent;
+	border: 3px solid currentColor;
+	border-right-color: transparent;
+	animation: voiceboard-spin 900ms linear infinite;
+}
+
 .voice-activity-ring-responding {
-	border-color: var(--tl-color-primary);
-	box-shadow: 0 0 0 4px color-mix(in srgb, var(--tl-color-primary), transparent 80%);
+	color: hsl(214, 92%, 63%);
+	border-color: currentColor;
+	box-shadow:
+		0 0 0 calc(4px + var(--voice-level, 0) * 10px)
+			color-mix(in srgb, currentColor, transparent 87%),
+		0 0 28px color-mix(in srgb, currentColor, transparent 46%);
 }
 
 .transcript-panel {
 	display: flex;
-	min-height: 220px;
-	flex: 0 0 36vh;
 	flex-direction: column;
+	margin: 0 16px 12px;
+	overflow: hidden;
+	border: 1px solid var(--tl-color-low);
+	border-radius: 14px;
 	border-bottom: 1px solid var(--tl-color-low);
+	background: color-mix(in srgb, var(--tl-color-muted-1), transparent 14%);
+	transition:
+		flex-basis 180ms ease,
+		min-height 180ms ease;
+}
+
+.transcript-panel-open {
+	min-height: 250px;
+	flex: 0 0 38vh;
+}
+
+.transcript-panel-collapsed {
+	min-height: 72px;
+	flex: 0 0 72px;
 }
 
 .transcript-panel-header {
@@ -922,21 +1022,35 @@ button.prompt-tag span {
 	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
-	padding: 0 16px 10px;
+	padding: 12px;
+}
+
+.transcript-panel-header h2,
+.transcript-panel-header p {
+	margin: 0;
 }
 
 .transcript-panel-header h2 {
-	margin: 0;
 	font-size: 13px;
+}
+
+.transcript-panel-header p {
+	display: -webkit-box;
+	max-width: 210px;
+	overflow: hidden;
+	color: var(--tl-color-text-2);
+	font-size: 11px;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 1;
 }
 
 .transcript-panel-header button {
 	appearance: none;
-	border: 0;
+	border: 1px solid var(--tl-color-low);
 	border-radius: 8px;
 	padding: 7px 9px;
-	background: var(--tl-color-primary);
-	color: var(--tl-color-panel-contrast);
+	background: var(--tl-color-muted-2);
+	color: var(--tl-color-text-1);
 	cursor: pointer;
 	font-size: 12px;
 	font-weight: 700;
@@ -948,7 +1062,7 @@ button.prompt-tag span {
 	flex-direction: column;
 	gap: 8px;
 	overflow: auto;
-	padding: 0 16px 16px;
+	padding: 0 12px 12px;
 }
 
 .transcript-entry {
@@ -957,13 +1071,23 @@ button.prompt-tag span {
 	background: var(--tl-color-muted-1);
 }
 
-.transcript-entry span {
-	display: block;
-	margin-bottom: 4px;
+.transcript-entry-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 5px;
 	color: var(--tl-color-text-2);
 	font-size: 10px;
 	font-weight: 700;
+}
+
+.transcript-entry-meta span {
 	text-transform: uppercase;
+}
+
+.transcript-entry-meta time {
+	font-variant-numeric: tabular-nums;
 }
 
 .transcript-entry p {
@@ -976,6 +1100,98 @@ button.prompt-tag span {
 	background: color-mix(in srgb, var(--tl-color-primary), transparent 88%);
 }
 
+.transcript-entry-assistant {
+	background: color-mix(in srgb, hsl(214, 92%, 63%), transparent 90%);
+}
+
+.transcript-entry-function {
+	border: 1px solid color-mix(in srgb, hsl(145, 64%, 48%), transparent 60%);
+	background: color-mix(in srgb, hsl(145, 64%, 48%), transparent 90%);
+}
+
+.mock-actions {
+	display: flex;
+	gap: 8px;
+	padding: 0 12px 12px;
+}
+
+.mock-actions button {
+	flex: 1;
+	appearance: none;
+	border: 1px solid var(--tl-color-low);
+	border-radius: 8px;
+	padding: 8px;
+	background: var(--tl-color-muted-1);
+	color: var(--tl-color-text-1);
+	cursor: pointer;
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.mock-actions button:hover,
+.mock-state-controls button:hover,
+.transcript-panel-header button:hover {
+	background: var(--tl-color-muted-2);
+}
+
+.mock-state-controls {
+	margin: 0 16px 12px;
+	padding: 10px;
+	border: 1px solid var(--tl-color-low);
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--tl-color-muted-1), transparent 34%);
+}
+
+.mock-state-controls p {
+	margin: 0 0 8px;
+	color: var(--tl-color-text-2);
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
+.mock-state-controls div {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+}
+
+.mock-state-controls button {
+	appearance: none;
+	border: 1px solid var(--tl-color-low);
+	border-radius: 8px;
+	padding: 7px 8px;
+	background: transparent;
+	color: var(--tl-color-text-2);
+	cursor: pointer;
+	font-size: 11px;
+}
+
+.mock-state-controls .mock-state-active {
+	background: var(--tl-color-muted-2);
+	color: var(--tl-color-text-1);
+	font-weight: 700;
+}
+
+.text-fallback-header {
+	padding: 8px 16px 10px;
+	border-top: 1px solid var(--tl-color-low);
+}
+
+.text-fallback-header h2,
+.text-fallback-header p {
+	margin: 0;
+}
+
+.text-fallback-header h2 {
+	font-size: 13px;
+}
+
+.text-fallback-header p {
+	color: var(--tl-color-text-2);
+	font-size: 11px;
+}
+
 .voice-button {
 	position: absolute;
 	z-index: 1000;
@@ -986,19 +1202,53 @@ button.prompt-tag span {
 	gap: 8px;
 	transform: translateX(-50%);
 	appearance: none;
-	border: 0;
+	border: 1px solid color-mix(in srgb, white, transparent 80%);
 	border-radius: 999px;
 	padding: 14px 20px;
-	background: var(--tl-color-primary);
-	box-shadow: var(--tl-shadow-3);
-	color: var(--tl-color-panel-contrast);
+	background: hsl(220, 8%, 42%);
+	box-shadow:
+		var(--tl-shadow-3),
+		0 10px 34px color-mix(in srgb, black, transparent 58%);
+	color: white;
 	cursor: pointer;
 	font-size: 14px;
 	font-weight: 700;
+	transition:
+		background 140ms ease,
+		box-shadow 140ms ease,
+		transform 140ms ease;
 }
 
-.voice-button-active {
+.voice-button:hover {
+	transform: translateX(-50%) translateY(-1px);
+}
+
+.voice-button-listening {
 	background: hsl(356, 80%, 54%);
+	box-shadow:
+		var(--tl-shadow-3),
+		0 0 0 7px color-mix(in srgb, hsl(356, 86%, 58%), transparent 82%),
+		0 0 32px color-mix(in srgb, hsl(356, 86%, 58%), transparent 48%);
+	animation: voiceboard-pulse 900ms ease-in-out infinite alternate;
+}
+
+.voice-button-processing {
+	background: hsl(38, 92%, 45%);
+}
+
+.voice-button-processing .voice-button-dot {
+	background: transparent;
+	border: 2px solid currentColor;
+	border-right-color: transparent;
+	animation: voiceboard-spin 900ms linear infinite;
+}
+
+.voice-button-responding {
+	background: hsl(214, 86%, 48%);
+	box-shadow:
+		var(--tl-shadow-3),
+		0 0 0 8px color-mix(in srgb, hsl(214, 90%, 58%), transparent 84%),
+		0 0 36px color-mix(in srgb, hsl(214, 92%, 62%), transparent 38%);
 }
 
 .voice-button-dot {
@@ -1008,7 +1258,48 @@ button.prompt-tag span {
 	background: currentColor;
 }
 
+.browser-warning {
+	position: absolute;
+	z-index: 1000;
+	top: 16px;
+	left: 50%;
+	max-width: min(520px, calc(100% - 32px));
+	transform: translateX(-50%);
+	border: 1px solid color-mix(in srgb, hsl(38, 96%, 58%), transparent 42%);
+	border-radius: 999px;
+	padding: 8px 12px;
+	background: color-mix(in srgb, hsl(38, 96%, 18%), transparent 8%);
+	color: hsl(38, 100%, 84%);
+	font-size: 12px;
+	box-shadow: var(--tl-shadow-2);
+}
+
+@keyframes voiceboard-pulse {
+	from {
+		box-shadow:
+			var(--tl-shadow-3),
+			0 0 0 5px color-mix(in srgb, hsl(356, 86%, 58%), transparent 88%),
+			0 0 20px color-mix(in srgb, hsl(356, 86%, 58%), transparent 58%);
+	}
+	to {
+		box-shadow:
+			var(--tl-shadow-3),
+			0 0 0 12px color-mix(in srgb, hsl(356, 86%, 58%), transparent 90%),
+			0 0 38px color-mix(in srgb, hsl(356, 86%, 58%), transparent 42%);
+	}
+}
+
+@keyframes voiceboard-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
 @media (max-width: 768px) {
+	.tldraw-agent-container {
+		grid-template-rows: minmax(340px, 45vh) minmax(360px, 55vh);
+	}
+
 	.voiceboard-sidebar {
 		height: 55vh;
 		border-left: 0;
@@ -1017,5 +1308,13 @@ button.prompt-tag span {
 
 	.transcript-panel {
 		flex-basis: 24vh;
+	}
+
+	.transcript-panel-collapsed {
+		flex-basis: 72px;
+	}
+
+	.mock-state-controls {
+		display: none;
 	}
 }

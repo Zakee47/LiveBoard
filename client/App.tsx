@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { CSSProperties, PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
 	DefaultSizeStyle,
 	Editor,
@@ -63,6 +63,8 @@ function App() {
 	const [app, setApp] = useState<TldrawAgentApp | null>(null)
 	const [editor, setEditor] = useState<Editor | null>(null)
 	const [voiceState, setVoiceState] = useState<VoiceState>('idle')
+	const [audioLevel, setAudioLevel] = useState(0)
+	const [isTranscriptOpen, setIsTranscriptOpen] = useState(false)
 	const [transcript, setTranscript] = useState<TranscriptEntry[]>([
 		{
 			id: 'system-welcome',
@@ -70,22 +72,30 @@ function App() {
 			text: 'VoiceBoard scaffold is running with mocked realtime voice behavior.',
 			createdAt: Date.now(),
 			isFinal: true,
+			kind: 'status',
 		},
 	])
+	const addTranscriptEntry = useCallback(
+		(entry: Omit<TranscriptEntry, 'id' | 'createdAt' | 'isFinal'> & Partial<TranscriptEntry>) => {
+			setTranscript((entries) => [
+				...entries,
+				{
+					id: entry.id ?? crypto.randomUUID(),
+					role: entry.role,
+					text: entry.text,
+					createdAt: entry.createdAt ?? Date.now(),
+					isFinal: entry.isFinal ?? true,
+					kind: entry.kind ?? 'message',
+				},
+			])
+		},
+		[]
+	)
 	const sessionRef = useRef(
 		createVoiceSessionManager({
 			onStateChange: setVoiceState,
 			onTranscript: (text, role) => {
-				setTranscript((entries) => [
-					...entries,
-					{
-						id: crypto.randomUUID(),
-						role,
-						text,
-						createdAt: Date.now(),
-						isFinal: true,
-					},
-				])
+				addTranscriptEntry({ role, text })
 			},
 		})
 	)
@@ -99,18 +109,54 @@ function App() {
 		setEditor(mountedEditor)
 	}, [])
 
-	const handleVoiceToggle = useCallback(async () => {
-		const controller = createPushToTalkController({
-			getState: () => sessionRef.current.state,
-			onStart: async () => {
-				await sessionRef.current.connect()
-			},
-			onStop: () => {
-				sessionRef.current.disconnect()
-			},
-		})
-		await controller.toggle()
-	}, [])
+	useEffect(() => {
+		if (voiceState === 'idle') {
+			setAudioLevel(0)
+			return
+		}
+
+		let frameId = 0
+		const startedAt = performance.now()
+		const updateLevel = () => {
+			const elapsed = (performance.now() - startedAt) / 1000
+			const baseLevel =
+				voiceState === 'listening' ? 0.58 : voiceState === 'responding' ? 0.42 : 0.28
+			const wave = Math.sin(elapsed * 9) * 0.18 + Math.sin(elapsed * 15) * 0.08
+			setAudioLevel(Math.max(0.08, Math.min(1, baseLevel + wave)))
+			frameId = window.requestAnimationFrame(updateLevel)
+		}
+		updateLevel()
+
+		return () => window.cancelAnimationFrame(frameId)
+	}, [voiceState])
+
+	const voiceController = useMemo(
+		() =>
+			createPushToTalkController({
+				getState: () => sessionRef.current.state,
+				onStart: async () => {
+					await sessionRef.current.connect()
+				},
+				onStop: () => {
+					sessionRef.current.disconnect()
+				},
+			}),
+		[]
+	)
+
+	const handleVoiceHoldStart = useCallback(async () => {
+		if (sessionRef.current.state === 'idle') {
+			await voiceController.start()
+		}
+	}, [voiceController])
+
+	const handleVoiceHoldEnd = useCallback(async () => {
+		if (sessionRef.current.state === 'listening') {
+			await sessionRef.current.sendText('Mock held voice input')
+		} else if (sessionRef.current.state !== 'idle') {
+			await voiceController.stop()
+		}
+	}, [voiceController])
 
 	const handleMockPrompt = useCallback(async () => {
 		if (voiceState === 'idle') {
@@ -136,13 +182,50 @@ function App() {
 							richText: toRichText('Mock voice action'),
 						},
 					},
+					{
+						id: createShapeId(),
+						type: 'geo',
+						x: snapshot.viewportBounds.x + 348,
+						y: snapshot.viewportBounds.y + 96,
+						props: {
+							geo: 'ellipse',
+							w: 144,
+							h: 96,
+							richText: toRichText('Idea'),
+						},
+					},
+					{
+						id: createShapeId(),
+						type: 'note',
+						x: snapshot.viewportBounds.x + 96,
+						y: snapshot.viewportBounds.y + 232,
+						props: {
+							richText: toRichText('Voice note'),
+						},
+					},
 				],
 			})
-			sessionRef.current.sendToolResult({ type: 'critique_canvas', focus: 'viewport' }, result)
+			addTranscriptEntry({
+				role: 'system',
+				text: compactFunctionSummary(result),
+				kind: 'function',
+			})
 		}
 
 		await sessionRef.current.sendText('Create a simple sticky-note idea on the board.')
-	}, [editor, voiceState])
+	}, [addTranscriptEntry, editor, voiceState])
+
+	const handleMockCritique = useCallback(async () => {
+		if (!editor) return
+
+		const actionBridge = createActionBridge({ editor })
+		const result = await actionBridge.execute({ type: 'critique_canvas', focus: 'viewport' })
+		addTranscriptEntry({
+			role: 'assistant',
+			text: `Critique: ${result}`,
+			kind: 'message',
+		})
+	}, [addTranscriptEntry, editor])
 
 	// Custom components to visualize what the agent is doing
 	// These use TldrawAgentAppContextProvider to access the app/agent
@@ -177,7 +260,12 @@ function App() {
 					>
 						<TldrawAgentAppProvider onMount={setApp} onUnmount={handleUnmount} />
 					</Tldraw>
-					<VoiceButton state={voiceState} onClick={handleVoiceToggle} />
+					<BrowserCompatibilityWarning />
+					<VoiceButton
+						state={voiceState}
+						onHoldEnd={handleVoiceHoldEnd}
+						onHoldStart={handleVoiceHoldStart}
+					/>
 				</div>
 				<aside className="voiceboard-sidebar">
 					<header className="voiceboard-sidebar-header">
@@ -187,8 +275,27 @@ function App() {
 						</div>
 						<StateIndicator state={voiceState} />
 					</header>
-					<VoiceActivityIndicator state={voiceState} />
-					<TranscriptPanel entries={transcript} onMockPrompt={handleMockPrompt} />
+					<VoiceActivityIndicator level={audioLevel} state={voiceState} />
+					<TranscriptPanel
+						entries={transcript}
+						isOpen={isTranscriptOpen}
+						onMockCritique={handleMockCritique}
+						onMockPrompt={handleMockPrompt}
+						onToggle={() => setIsTranscriptOpen((isOpen) => !isOpen)}
+					/>
+					<MockStateControls
+						onSelectState={(state) => {
+							setVoiceState(state)
+							sessionRef.current.state = state
+						}}
+						state={voiceState}
+					/>
+					<div className="text-fallback-header">
+						<div>
+							<h2>Text fallback</h2>
+							<p>Use the Agent Kit chat for prompts and critique output.</p>
+						</div>
+					</div>
 					<ErrorBoundary fallback={ChatPanelFallback}>
 						{app && (
 							<TldrawAgentAppContextProvider app={app}>
@@ -202,65 +309,213 @@ function App() {
 	)
 }
 
-function VoiceButton({ state, onClick }: { state: VoiceState; onClick: () => void }) {
-	const isActive = state !== 'idle'
+function VoiceButton({
+	state,
+	onHoldEnd,
+	onHoldStart,
+}: {
+	state: VoiceState
+	onHoldEnd: () => Promise<void>
+	onHoldStart: () => Promise<void>
+}) {
+	const handlePointerDown = useCallback(
+		async (event: PointerEvent<HTMLButtonElement>) => {
+			event.currentTarget.setPointerCapture(event.pointerId)
+			await onHoldStart()
+		},
+		[onHoldStart]
+	)
+	const handlePointerEnd = useCallback(
+		async (event: PointerEvent<HTMLButtonElement>) => {
+			if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+				event.currentTarget.releasePointerCapture(event.pointerId)
+			}
+			await onHoldEnd()
+		},
+		[onHoldEnd]
+	)
+
 	return (
 		<button
-			className={`voice-button ${isActive ? 'voice-button-active' : ''}`}
+			aria-label="Hold to talk"
+			className={`voice-button voice-button-${state}`}
 			type="button"
-			onClick={onClick}
+			onPointerCancel={handlePointerEnd}
+			onPointerDown={handlePointerDown}
+			onPointerUp={handlePointerEnd}
 		>
 			<span className="voice-button-dot" />
-			{isActive ? 'Stop voice' : 'Hold to talk'}
+			<span>{voiceButtonLabel[state]}</span>
 		</button>
 	)
 }
 
-function VoiceActivityIndicator({ state }: { state: VoiceState }) {
+function VoiceActivityIndicator({ level, state }: { level: number; state: VoiceState }) {
+	const style = { '--voice-level': level.toFixed(2) } as CSSProperties
+
 	return (
 		<section className="voice-activity" aria-label="Voice activity">
-			<div className={`voice-activity-ring voice-activity-ring-${state}`} />
-			<p>{activityCopy[state]}</p>
+			<div className={`voice-activity-ring voice-activity-ring-${state}`} style={style}>
+				<span />
+			</div>
+			<div>
+				<strong>Voice activity</strong>
+				<p>{activityCopy[state]}</p>
+			</div>
 		</section>
 	)
 }
 
 function TranscriptPanel({
 	entries,
+	isOpen,
+	onMockCritique,
 	onMockPrompt,
+	onToggle,
 }: {
 	entries: TranscriptEntry[]
+	isOpen: boolean
+	onMockCritique: () => void
 	onMockPrompt: () => void
+	onToggle: () => void
 }) {
+	const latestEntry = entries[entries.length - 1]
+
 	return (
-		<section className="transcript-panel" aria-label="Transcript">
+		<section
+			aria-label="Transcript"
+			className={`transcript-panel ${isOpen ? 'transcript-panel-open' : 'transcript-panel-collapsed'}`}
+		>
 			<div className="transcript-panel-header">
-				<h2>Transcript</h2>
-				<button type="button" onClick={onMockPrompt}>
-					Run mock action
+				<div>
+					<h2>Transcript</h2>
+					<p>{isOpen ? `${entries.length} entries` : latestEntry.text}</p>
+				</div>
+				<button type="button" onClick={onToggle}>
+					{isOpen ? 'Collapse' : 'Open'}
 				</button>
 			</div>
-			<div className="transcript-entries">
-				{entries.map((entry) => (
-					<article className={`transcript-entry transcript-entry-${entry.role}`} key={entry.id}>
-						<span>{entry.role}</span>
-						<p>{entry.text}</p>
-					</article>
+			{isOpen && (
+				<>
+					<div className="transcript-entries">
+						{entries.map((entry) => (
+							<article
+								className={`transcript-entry transcript-entry-${entry.role} transcript-entry-${entry.kind ?? 'message'}`}
+								key={entry.id}
+							>
+								<div className="transcript-entry-meta">
+									<span>{speakerLabel(entry)}</span>
+									<time dateTime={new Date(entry.createdAt).toISOString()}>
+										{formatTranscriptTime(entry.createdAt)}
+									</time>
+								</div>
+								<p>{entry.text}</p>
+							</article>
+						))}
+					</div>
+					<div className="mock-actions">
+						<button type="button" onClick={onMockPrompt}>
+							Mock: create 3 shapes
+						</button>
+						<button type="button" onClick={onMockCritique}>
+							Mock critique
+						</button>
+					</div>
+				</>
+			)}
+		</section>
+	)
+}
+
+function StateIndicator({ state }: { state: VoiceState }) {
+	return <span className={`state-indicator state-indicator-${state}`}>{stateLabel[state]}</span>
+}
+
+function MockStateControls({
+	onSelectState,
+	state,
+}: {
+	onSelectState: (state: VoiceState) => void
+	state: VoiceState
+}) {
+	return (
+		<section className="mock-state-controls" aria-label="Mock voice state controls">
+			<p>Mock voice states</p>
+			<div>
+				{voiceStates.map((voiceState) => (
+					<button
+						className={state === voiceState ? 'mock-state-active' : ''}
+						key={voiceState}
+						type="button"
+						onClick={() => onSelectState(voiceState)}
+					>
+						{stateLabel[voiceState]}
+					</button>
 				))}
 			</div>
 		</section>
 	)
 }
 
-function StateIndicator({ state }: { state: VoiceState }) {
-	return <span className={`state-indicator state-indicator-${state}`}>{state}</span>
+function BrowserCompatibilityWarning() {
+	const [shouldWarn, setShouldWarn] = useState(false)
+
+	useEffect(() => {
+		const userAgent = window.navigator.userAgent
+		const isChrome = userAgent.includes('Chrome') || userAgent.includes('Chromium')
+		const isEdge = userAgent.includes('Edg/')
+		setShouldWarn(!isChrome || isEdge)
+	}, [])
+
+	if (!shouldWarn) return null
+
+	return (
+		<div className="browser-warning" role="status">
+			VoiceBoard voice capture is optimized for desktop Chrome.
+		</div>
+	)
+}
+
+function speakerLabel(entry: TranscriptEntry) {
+	if (entry.kind === 'function') return 'Function'
+	if (entry.role === 'user') return 'You'
+	if (entry.role === 'assistant') return 'Agent'
+	return 'VoiceBoard'
+}
+
+function formatTranscriptTime(createdAt: number) {
+	return new Intl.DateTimeFormat(undefined, {
+		hour: 'numeric',
+		minute: '2-digit',
+		second: '2-digit',
+	}).format(createdAt)
+}
+
+function compactFunctionSummary(result: string) {
+	return result.endsWith('.') ? result.slice(0, -1) : result
+}
+
+const voiceStates: VoiceState[] = ['idle', 'listening', 'processing', 'responding']
+
+const stateLabel: Record<VoiceState, string> = {
+	idle: 'Ready',
+	listening: 'Listening',
+	processing: 'Thinking',
+	responding: 'Speaking',
+}
+
+const voiceButtonLabel: Record<VoiceState, string> = {
+	idle: 'Hold to talk',
+	listening: 'Release to send',
+	processing: 'Thinking…',
+	responding: 'Speaking…',
 }
 
 const activityCopy: Record<VoiceState, string> = {
 	idle: 'Ready for push-to-talk.',
-	listening: 'Listening through mocked local session.',
-	processing: 'Processing transcript and canvas context.',
-	responding: 'Responding with mocked realtime output.',
+	listening: 'Listening through the local voice session.',
+	processing: 'Thinking through transcript and canvas context.',
+	responding: 'Speaking with mocked realtime output.',
 }
 
 export default App
