@@ -9,7 +9,8 @@
 		"dev:proxy": "tsx server/proxy.ts",
 		"lint": "npm run typecheck",
 		"preview": "vite preview",
-		"test": "tsx --test --test-force-exit src/**/*.test.ts",
+		"qa:voiceboard": "tsx scripts/voiceboard-qa-harness.ts",
+		"test": "tsx --test --test-force-exit src/**/*.test.ts && npm run qa:voiceboard",
 		"typecheck": "tsc --noEmit",
 		"test:voice": "tsx src/voice/ActionBridge.demo.ts"
 	},
