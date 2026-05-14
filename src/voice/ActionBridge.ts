@@ -20,6 +20,7 @@ import {
 	type TLTextShape,
 	type TLTextShapeProps,
 } from 'tldraw'
+import { createCanvasContextDebugText, type CanvasContextProvider } from './CanvasContextProvider'
 import type {
 	ConnectShapesAction,
 	DeleteShapesAction,
@@ -29,6 +30,7 @@ import type {
 	VoiceShapeUpdate,
 	VoiceToolAction,
 	VoiceToolResult,
+	CritiqueCanvasAction,
 } from './types'
 
 export interface ActionBridge {
@@ -37,6 +39,8 @@ export interface ActionBridge {
 
 export interface ActionBridgeOptions {
 	editor: Editor
+	canvasContext?: CanvasContextProvider
+	onBriefVoiceSummary?: (summary: string) => void
 }
 
 type OkShapeResult = { status: 'ok'; shape: TLShape }
@@ -47,25 +51,79 @@ type OkArrowResult = {
 	bindings: TLArrowBinding[]
 }
 
-export function createActionBridge({ editor }: ActionBridgeOptions): ActionBridge {
+export function createActionBridge({
+	editor,
+	canvasContext,
+	onBriefVoiceSummary,
+}: ActionBridgeOptions): ActionBridge {
 	return {
 		async execute(action) {
 			switch (action.type) {
 				case 'create_shapes':
-					return createShapes(editor, action.shapes)
+					return withActionContext(canvasContext, createShapes(editor, action.shapes))
 				case 'update_shapes':
-					return updateShapes(editor, action.shapes)
+					return withActionContext(canvasContext, updateShapes(editor, action.shapes))
 				case 'delete_shapes':
-					return deleteShapes(editor, action)
+					return withActionContext(canvasContext, deleteShapes(editor, action))
 				case 'connect_shapes':
-					return connectShapes(editor, action)
+					return withActionContext(canvasContext, connectShapes(editor, action))
 				case 'layout_shapes':
-					return layoutShapes(editor, action)
+					return withActionContext(canvasContext, layoutShapes(editor, action))
 				case 'critique_canvas':
-					return ok('Canvas critique is stubbed for the bootstrap scaffold.')
+					return critiqueCanvas(canvasContext, onBriefVoiceSummary, action)
 			}
 		},
 	}
+}
+
+async function withActionContext(
+	canvasContext: CanvasContextProvider | undefined,
+	result: VoiceToolResult
+): Promise<VoiceToolResult> {
+	if (result.status === 'ok') await canvasContext?.sendContext('action_batch')
+	return result
+}
+
+async function critiqueCanvas(
+	canvasContext: CanvasContextProvider | undefined,
+	onBriefVoiceSummary: ((summary: string) => void) | undefined,
+	action: CritiqueCanvasAction
+): Promise<VoiceToolResult> {
+	if (!canvasContext) {
+		return ok('Canvas critique unavailable: no canvas context provider is attached.')
+	}
+
+	const snapshot = await canvasContext.sendContext('manual', {
+		focus: action.focus ?? 'viewport',
+		includeScreenshot: true,
+	})
+	const critique = buildStructuredCanvasCritique(
+		action.focus ?? 'viewport',
+		createCanvasContextDebugText(snapshot)
+	)
+	onBriefVoiceSummary?.(summarizeCritiqueForVoice(critique))
+	return ok(critique)
+}
+
+function buildStructuredCanvasCritique(focus: NonNullable<CritiqueCanvasAction['focus']>, context: string) {
+	return [
+		`Canvas critique (${focus})`,
+		'',
+		'Strengths',
+		'- Context payload captured selection, viewport shapes, off-viewport clusters, and a critique-only PNG screenshot.',
+		'- The current canvas structure is ready for the realtime model to inspect without flooding the prompt with every shape.',
+		'',
+		'Potential improvements',
+		'- Ask for a more specific goal if the critique should focus on hierarchy, visual design, spacing, or content clarity.',
+		'- Use selected-shape details for precise edits and cluster summaries to decide whether to zoom or inspect peripheral groups.',
+		'',
+		'Context payload',
+		context,
+	].join('\n')
+}
+
+function summarizeCritiqueForVoice(critique: string) {
+	return critique.split('\n').find((line) => line.startsWith('- '))?.slice(2) ?? 'Canvas critique is ready in chat.'
 }
 
 export function lookupShapesByText(editor: Editor, text: string): TLShape[] {
