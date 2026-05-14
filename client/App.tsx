@@ -82,6 +82,7 @@ function App() {
 					text: entry.text,
 					createdAt: entry.createdAt ?? Date.now(),
 					isFinal: entry.isFinal ?? true,
+					kind: entry.kind,
 				},
 			])
 		},
@@ -333,6 +334,7 @@ function VoiceButton({
 			type="button"
 			onPointerCancel={onHoldEnd}
 			onPointerDown={onHoldStart}
+			onPointerLeave={onHoldEnd}
 			onPointerUp={onHoldEnd}
 		>
 			<span className="voice-button-dot" />
@@ -391,7 +393,7 @@ function TranscriptPanel({
 					<div className="transcript-entries">
 						{entries.map((entry) => (
 							<article
-								className={`transcript-entry transcript-entry-${entry.role}`}
+								className={`transcript-entry transcript-entry-${entry.kind ?? entry.role}`}
 								key={entry.id}
 							>
 								<div className="transcript-entry-meta">
