@@ -4,12 +4,14 @@ import { createActionBridge } from '../src/voice/ActionBridge'
 import { createPushToTalkController } from '../src/voice/PushToTalkController'
 import { MockVoiceSessionManager } from '../src/voice/VoiceSessionManager'
 import { realtimeTools } from '../src/voice/tools'
-import type { TLCreateShapePartial, TLShapeId, TLShapePartial } from 'tldraw'
+import type { TLCreateShapePartial, TLShape, TLShapeId, TLShapePartial } from 'tldraw'
 import type {
+	ConnectShapesAction,
 	CreateShapesAction,
 	DeleteShapesAction,
 	LayoutShapesAction,
 	UpdateShapesAction,
+	VoiceShapeUpdate,
 	VoiceState,
 } from '../src/voice/types'
 
@@ -94,16 +96,29 @@ function createShape(id: string): TLCreateShapePartial {
 	} as unknown as TLCreateShapePartial
 }
 
-function updateShape(id: string): TLShapePartial {
+function updateShape(id: string): VoiceShapeUpdate {
 	return {
-		id,
-		type: 'geo',
-		props: { text: 'Auth Service' },
-	} as unknown as TLShapePartial
+		shapeId: shapeId(id),
+		text: 'Auth Service',
+	}
 }
 
 function shapeId(id: string): TLShapeId {
 	return id as unknown as TLShapeId
+}
+
+function shapeIdFromString(id: string): TLShapeId {
+	return id as unknown as TLShapeId
+}
+
+function existingShape(id: string, x: number, y: number): TLShape {
+	return {
+		id: shapeIdFromString(id),
+		type: 'geo',
+		x,
+		y,
+		props: { geo: 'rectangle', w: 160, h: 80 },
+	} as unknown as TLShape
 }
 
 async function testPushToTalkStateTransitions() {
@@ -159,6 +174,7 @@ function testRealtimeToolDefinitions() {
 		'create_shapes',
 		'update_shapes',
 		'delete_shapes',
+		'connect_shapes',
 		'layout_shapes',
 		'critique_canvas',
 	])
@@ -176,14 +192,39 @@ async function testActionBridgeEditorOperations() {
 		createShapes: (shapes: TLCreateShapePartial[]) => calls.push(`create:${shapes.length}`),
 		updateShapes: (shapes: TLShapePartial[]) => calls.push(`update:${shapes.length}`),
 		deleteShapes: (shapeIds: TLShapeId[]) => calls.push(`delete:${shapeIds.length}`),
+		createShape: (shape: TLCreateShapePartial) => calls.push(`createOne:${shape.type}`),
+		createBindings: (bindings: unknown[]) => calls.push(`bindings:${bindings.length}`),
+		run: (callback: () => void) => callback(),
+		getShape: (shapeId: TLShapeId) => {
+			if (shapeId === shapeIdFromString('shape:frontend')) return existingShape('shape:frontend', 0, 0)
+			if (shapeId === shapeIdFromString('shape:api')) return existingShape('shape:api', 260, 0)
+			if (shapeId === shapeIdFromString('shape:postgres')) return existingShape('shape:postgres', 520, 0)
+			if (shapeId === shapeIdFromString('shape:old-api')) return existingShape('shape:old-api', 780, 0)
+			return undefined
+		},
+		getSelectedShapeIds: () => [] as TLShapeId[],
+		getCurrentPageShapes: () => [
+			existingShape('shape:frontend', 0, 0),
+			existingShape('shape:api', 260, 0),
+			existingShape('shape:postgres', 520, 0),
+		],
+		getShapePageBounds: (shapeId: TLShapeId) => {
+			const x =
+				shapeId === shapeIdFromString('shape:frontend')
+					? 0
+					: shapeId === shapeIdFromString('shape:api')
+						? 260
+						: 520
+			return {
+				x,
+				y: 0,
+				w: 160,
+				h: 80,
+				center: { x: x + 80, y: 40 },
+			}
+		},
 		packShapes: (shapeIds: TLShapeId[], gap?: number) =>
 			calls.push(`pack:${shapeIds.length}:${gap ?? 'default'}`),
-		distributeShapes: (shapeIds: TLShapeId[], axis: 'horizontal' | 'vertical') =>
-			calls.push(`distribute:${shapeIds.length}:${axis}`),
-		alignShapes: (
-			shapeIds: TLShapeId[],
-			alignment: 'top' | 'bottom' | 'left' | 'right' | 'center-horizontal' | 'center-vertical'
-		) => calls.push(`align:${shapeIds.length}:${alignment}`),
 	}
 	const bridge = createActionBridge({
 		editor: editor as unknown as Parameters<typeof createActionBridge>[0]['editor'],
@@ -191,7 +232,7 @@ async function testActionBridgeEditorOperations() {
 
 	const createAction: CreateShapesAction = {
 		type: 'create_shapes',
-		shapes: [createShape('shape:frontend'), createShape('shape:api')],
+		shapes: [createShape('shape:cache'), createShape('shape:worker')],
 	}
 	const updateAction: UpdateShapesAction = {
 		type: 'update_shapes',
@@ -201,42 +242,72 @@ async function testActionBridgeEditorOperations() {
 		type: 'delete_shapes',
 		shapeIds: [shapeId('shape:old-api')],
 	}
+	const connectAction: ConnectShapesAction = {
+		type: 'connect_shapes',
+		shapeId: 'shape:frontend-api-arrow',
+		arrowFromId: shapeId('shape:frontend'),
+		arrowToId: shapeId('shape:api'),
+		text: 'requests',
+	}
 	const packAction: LayoutShapesAction = {
 		type: 'layout_shapes',
 		shapeIds: [shapeId('shape:frontend'), shapeId('shape:api'), shapeId('shape:postgres')],
-		operation: 'pack',
+		operation: 'auto',
 		gap: 32,
 	}
-	const distributeAction: LayoutShapesAction = {
+	const topDownAction: LayoutShapesAction = {
 		type: 'layout_shapes',
 		shapeIds: [shapeId('shape:frontend'), shapeId('shape:api')],
-		operation: 'distribute',
-		axis: 'vertical',
-	}
-	const alignAction: LayoutShapesAction = {
-		type: 'layout_shapes',
-		shapeIds: [shapeId('shape:frontend'), shapeId('shape:api')],
-		operation: 'align',
-		alignment: 'center-horizontal',
+		operation: 'top-down',
 	}
 
-	assert.equal(await bridge.execute(createAction), 'Created 2 shapes.')
-	assert.equal(await bridge.execute(updateAction), 'Updated 1 shape.')
-	assert.equal(await bridge.execute(deleteAction), 'Deleted 1 shape.')
-	assert.equal(await bridge.execute(packAction), 'Applied pack to 3 shapes.')
-	assert.equal(await bridge.execute(distributeAction), 'Applied distribute to 2 shapes.')
-	assert.equal(await bridge.execute(alignAction), 'Applied align to 2 shapes.')
-	assert.equal(
-		await bridge.execute({ type: 'critique_canvas', focus: 'canvas' }),
-		'Canvas critique is stubbed for the bootstrap scaffold.'
-	)
+	assert.deepEqual(await bridge.execute(createAction), {
+		status: 'ok',
+		message: 'Created 2 shapes.',
+		shapeIds: [shapeIdFromString('shape:cache'), shapeIdFromString('shape:worker')],
+	})
+	assert.deepEqual(await bridge.execute(updateAction), {
+		status: 'ok',
+		message: 'Updated 1 shape.',
+		shapeIds: [shapeIdFromString('shape:api')],
+	})
+	assert.deepEqual(await bridge.execute(deleteAction), {
+		status: 'ok',
+		message: 'Deleted 1 shape.',
+		shapeIds: [shapeIdFromString('shape:old-api')],
+	})
+	assert.deepEqual(await bridge.execute(connectAction), {
+		status: 'ok',
+		message: 'Connected shapes with an arrow.',
+		shapeIds: [shapeIdFromString('shape:frontend-api-arrow')],
+	})
+	assert.deepEqual(await bridge.execute(packAction), {
+		status: 'ok',
+		message: 'Applied auto layout to 3 shapes.',
+		shapeIds: [
+			shapeIdFromString('shape:frontend'),
+			shapeIdFromString('shape:api'),
+			shapeIdFromString('shape:postgres'),
+		],
+	})
+	assert.deepEqual(await bridge.execute(topDownAction), {
+		status: 'ok',
+		message: 'Applied top-down layout to 2 shapes.',
+		shapeIds: [shapeIdFromString('shape:frontend'), shapeIdFromString('shape:api')],
+	})
+	assert.deepEqual(await bridge.execute({ type: 'critique_canvas', focus: 'canvas' }), {
+		status: 'ok',
+		message: 'Canvas critique is stubbed for the bootstrap scaffold.',
+		shapeIds: undefined,
+	})
 	assert.deepEqual(calls, [
 		'create:2',
 		'update:1',
 		'delete:1',
+		'createOne:arrow',
+		'bindings:2',
 		'pack:3:32',
-		'distribute:2:vertical',
-		'align:2:center-horizontal',
+		'update:2',
 	])
 }
 
@@ -280,3 +351,4 @@ for (const test of tests) {
 }
 
 console.log(`VoiceBoard QA harness passed ${tests.length} deterministic checks.`)
+process.exit(0)

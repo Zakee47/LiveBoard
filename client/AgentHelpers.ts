@@ -403,7 +403,7 @@ export class AgentHelpers {
 	unroundAndRestoreNumber(number: number, key: string): number {
 		const diff = this.roundingDiffMap.get(key)
 		if (diff === undefined) return number
-		return number + diff
+		return number - diff
 	}
 
 	/**
@@ -435,7 +435,7 @@ export class AgentHelpers {
 		const key = `${shape.shapeId}_${property as string}`
 		const diff = this.roundingDiffMap.get(key)
 		if (diff === undefined) return shape
-		;(shape[property] as number) += diff
+		;(shape[property] as number) -= diff
 		return shape
 	}
 

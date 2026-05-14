@@ -15,8 +15,8 @@ The harness validates the currently available voice contracts:
 
 - Push-to-talk state transitions through idle, listening, processing, and responding.
 - Mock Realtime text path emits user/assistant transcript entries and deterministic state changes.
-- Tool definitions expose create, update, delete, layout, and critique function schemas.
-- Action bridge calls tldraw editor operations for create, update, delete, layout, and critique actions.
+- Tool definitions expose create, update, delete, connect, layout, and critique function schemas.
+- Action bridge calls tldraw editor operations for create, update, delete, connect, layout, and critique actions.
 - MVP checklist coverage stays explicit as scaffold support evolves.
 
 ## Golden paths

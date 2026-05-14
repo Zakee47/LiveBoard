@@ -10,7 +10,8 @@
 		"preview": "vite preview",
 		"qa:voiceboard": "tsx scripts/voiceboard-qa-harness.ts",
 		"test": "npm run qa:voiceboard",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"test:voice": "tsx src/voice/ActionBridge.demo.ts"
 	},
 	"dependencies": {
 		"@ai-sdk/anthropic": "^2.0.2",
@@ -37,9 +38,12 @@
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260302.0",
+		"@types/jsdom": "^28.0.3",
+		"@types/node": "^25.7.0",
 		"@types/react": "^19.2.7",
 		"@types/react-dom": "^19.2.3",
 		"@vitejs/plugin-react": "^6.0.1",
+		"jsdom": "^28.1.0",
 		"typescript": "^5.8.3",
 		"vite": "^8.0.1"
 	}
