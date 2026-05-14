@@ -64,6 +64,7 @@ export function createPushToTalkController({
 	}
 
 	const press = async () => {
+		if (isPressed && getState() === 'idle') isPressed = false
 		if (isPressed) return
 		isPressed = true
 		try {

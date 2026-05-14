@@ -222,7 +222,7 @@ function App() {
 		const result = await actionBridge.execute({ type: 'critique_canvas', focus: 'viewport' })
 		addTranscriptEntry({
 			role: 'assistant',
-			text: `Critique: ${result}`,
+			text: `Critique: ${compactFunctionSummary(result)}`,
 			kind: 'message',
 		})
 	}, [addTranscriptEntry, editor])
