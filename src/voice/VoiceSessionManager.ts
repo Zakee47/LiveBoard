@@ -6,6 +6,7 @@ import type {
 	VoiceState,
 	VoiceToolAction,
 	VoiceToolName,
+	VoiceToolResult,
 } from './types'
 
 export interface VoiceSessionManager {
@@ -15,7 +16,7 @@ export interface VoiceSessionManager {
 	startListening(): Promise<void>
 	release(): Promise<void>
 	sendText(text: string): Promise<void>
-	sendToolResult(action: VoiceToolAction, result: string): void
+	sendToolResult(action: VoiceToolAction, result: VoiceToolResult): void
 }
 
 export interface VoiceSessionManagerOptions {
@@ -171,8 +172,8 @@ export class MockVoiceSessionManager implements VoiceSessionManager {
 		this.setState('listening')
 	}
 
-	sendToolResult(_action: VoiceToolAction, result: string) {
-		this.options.onTranscript?.(result, 'assistant')
+	sendToolResult(_action: VoiceToolAction, result: VoiceToolResult) {
+		this.options.onTranscript?.(result.message, 'assistant')
 	}
 
 	private setState(state: VoiceState) {
@@ -285,8 +286,8 @@ export class RealtimeVoiceSessionManager implements VoiceSessionManager {
 		this.setState('processing')
 	}
 
-	sendToolResult(action: VoiceToolAction, result: string) {
-		this.options.onTranscript?.(result, 'assistant')
+	sendToolResult(action: VoiceToolAction, result: VoiceToolResult) {
+		this.options.onTranscript?.(result.message, 'assistant')
 
 		if (this.isMockMode) return
 
@@ -296,7 +297,7 @@ export class RealtimeVoiceSessionManager implements VoiceSessionManager {
 			item: {
 				type: 'function_call_output',
 				...(callId ? { call_id: callId } : {}),
-				output: result,
+				output: JSON.stringify(result),
 			},
 		})
 		this.sendRealtimeEvent({ type: 'response.create' })

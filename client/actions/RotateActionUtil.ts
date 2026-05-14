@@ -21,7 +21,7 @@ export const RotateActionUtil = registerActionUtil(
 		}
 
 		override applyAction(action: Streaming<RotateAction>, helpers: AgentHelpers) {
-			if (!action.shapeIds || !action.degrees || !action.originX || !action.originY) {
+			if (!action.shapeIds || action.degrees == null || action.originX == null || action.originY == null) {
 				return
 			}
 
