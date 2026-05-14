@@ -177,7 +177,7 @@ export class MockVoiceSessionManager implements VoiceSessionManager {
 			'Mock realtime session received your prompt. WebRTC integration will replace this stub.',
 			'assistant'
 		)
-		this.setState('listening')
+		this.setState('idle')
 	}
 
 	sendToolResult(_action: VoiceToolAction, result: VoiceToolResult) {
