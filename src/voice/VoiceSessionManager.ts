@@ -191,6 +191,11 @@ export class MockVoiceSessionManager implements VoiceSessionManager {
 	}
 
 	async sendText(text: string) {
+		if (text === 'Mock held voice input' && this.state === 'listening') {
+			await this.release()
+			return
+		}
+
 		this.options.onTranscript?.(text, 'user')
 		this.setState('processing')
 		await wait(650)
@@ -377,7 +382,6 @@ export class RealtimeVoiceSessionManager implements VoiceSessionManager {
 
 			peerConnection.addEventListener('track', (event) => {
 				if (this.audioElement) this.audioElement.srcObject = event.streams[0]
-				this.setState('responding')
 			})
 
 			this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
