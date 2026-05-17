@@ -22,7 +22,7 @@ const defaultConfig: VoiceSessionConfig = {
 	voice: 'alloy',
 }
 
-const wait = (duration: number) => new Promise((resolve) => window.setTimeout(resolve, duration))
+const wait = (duration: number) => new Promise((resolve) => setTimeout(resolve, duration))
 
 export class MockVoiceSessionManager implements VoiceSessionManager {
 	state: VoiceState = 'idle'
