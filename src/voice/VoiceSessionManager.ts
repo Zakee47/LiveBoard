@@ -143,7 +143,7 @@ function parseVoiceToolAction(name: string | undefined, args: string | undefined
 	}
 }
 
-const wait = (duration: number) => new Promise((resolve) => window.setTimeout(resolve, duration))
+const wait = (duration: number) => new Promise((resolve) => setTimeout(resolve, duration))
 
 export class MockVoiceSessionManager implements VoiceSessionManager {
 	state: VoiceState = 'idle'

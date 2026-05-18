@@ -7,7 +7,10 @@
 		"build": "vite build",
 		"dev": "vite",
 		"dev:proxy": "tsx server/proxy.ts",
+		"lint": "npm run typecheck",
 		"preview": "vite preview",
+		"qa:voiceboard": "tsx scripts/voiceboard-qa-harness.ts",
+		"test": "npm run qa:voiceboard && tsx --test --test-force-exit src/**/*.test.ts",
 		"typecheck": "tsc --noEmit",
 		"test:voice": "tsx src/voice/ActionBridge.demo.ts"
 	},

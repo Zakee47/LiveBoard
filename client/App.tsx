@@ -134,6 +134,15 @@ function App() {
 		() =>
 			createPushToTalkController({
 				getState: () => sessionRef.current.state,
+				onContextRequest: async () => {
+					if (!editor) return
+					const contextProvider = createCanvasContextProvider({ editor })
+					try {
+						await contextProvider.sendContext('ptt_start')
+					} finally {
+						contextProvider.dispose()
+					}
+				},
 				onStart: async () => {
 					await sessionRef.current.connect()
 				},
@@ -141,7 +150,7 @@ function App() {
 					sessionRef.current.disconnect()
 				},
 			}),
-		[]
+		[editor]
 	)
 
 	const handleVoiceHoldStart = useCallback(async () => {
@@ -165,51 +174,57 @@ function App() {
 
 		if (editor) {
 			const contextProvider = createCanvasContextProvider({ editor })
-			const actionBridge = createActionBridge({ editor })
-			const snapshot = contextProvider.getSnapshot()
-			const result = await actionBridge.execute({
-				type: 'create_shapes',
-				shapes: [
-					{
-						id: createShapeId(),
-						type: 'geo',
-						x: snapshot.viewportBounds.x + 96,
-						y: snapshot.viewportBounds.y + 96,
-						props: {
-							geo: 'rectangle',
-							w: 220,
-							h: 96,
-							richText: toRichText('Mock voice action'),
+			try {
+				const actionBridge = createActionBridge({ editor, canvasContext: contextProvider })
+				const snapshot = await contextProvider.getSnapshot()
+				await actionBridge.execute({
+					type: 'create_shapes',
+					shapes: [
+						{
+							id: createShapeId(),
+							type: 'geo',
+							x: snapshot.viewportBounds.x + 96,
+							y: snapshot.viewportBounds.y + 96,
+							props: {
+								geo: 'rectangle',
+								w: 220,
+								h: 96,
+								richText: toRichText('Mock voice action'),
+							},
 						},
-					},
-					{
-						id: createShapeId(),
-						type: 'geo',
-						x: snapshot.viewportBounds.x + 348,
-						y: snapshot.viewportBounds.y + 96,
-						props: {
-							geo: 'ellipse',
-							w: 144,
-							h: 96,
-							richText: toRichText('Idea'),
+						{
+							id: createShapeId(),
+							type: 'geo',
+							x: snapshot.viewportBounds.x + 348,
+							y: snapshot.viewportBounds.y + 96,
+							props: {
+								geo: 'ellipse',
+								w: 144,
+								h: 96,
+								richText: toRichText('Idea'),
+							},
 						},
-					},
-					{
-						id: createShapeId(),
-						type: 'note',
-						x: snapshot.viewportBounds.x + 96,
-						y: snapshot.viewportBounds.y + 232,
-						props: {
-							richText: toRichText('Voice note'),
+						{
+							id: createShapeId(),
+							type: 'note',
+							x: snapshot.viewportBounds.x + 96,
+							y: snapshot.viewportBounds.y + 232,
+							props: {
+								richText: toRichText('Voice note'),
+							},
 						},
-					},
-				],
-			})
-			addTranscriptEntry({
-				role: 'system',
-				text: compactFunctionSummary(result),
-				kind: 'function',
-			})
+					],
+				})
+				addTranscriptEntry({
+					role: 'system',
+					text: compactFunctionSummary('Created mock voice shapes.'),
+					kind: 'function',
+				})
+				const critique = await actionBridge.execute({ type: 'critique_canvas', focus: 'viewport' })
+				sessionRef.current.sendToolResult({ type: 'critique_canvas', focus: 'viewport' }, critique)
+			} finally {
+				contextProvider.dispose()
+			}
 		}
 
 		await sessionRef.current.sendText('Create a simple sticky-note idea on the board.')
@@ -218,14 +233,15 @@ function App() {
 	const handleMockCritique = useCallback(async () => {
 		if (!editor) return
 
-		const actionBridge = createActionBridge({ editor })
-		const result = await actionBridge.execute({ type: 'critique_canvas', focus: 'viewport' })
-		addTranscriptEntry({
-			role: 'assistant',
-			text: `Critique: ${compactFunctionSummary(result)}`,
-			kind: 'message',
-		})
-	}, [addTranscriptEntry, editor])
+		const contextProvider = createCanvasContextProvider({ editor })
+		try {
+			const actionBridge = createActionBridge({ editor, canvasContext: contextProvider })
+			const result = await actionBridge.execute({ type: 'critique_canvas', focus: 'viewport' })
+			sessionRef.current.sendToolResult({ type: 'critique_canvas', focus: 'viewport' }, result)
+		} finally {
+			contextProvider.dispose()
+		}
+	}, [editor])
 
 	// Custom components to visualize what the agent is doing
 	// These use TldrawAgentAppContextProvider to access the app/agent

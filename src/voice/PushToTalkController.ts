@@ -14,6 +14,7 @@ export interface PushToTalkControllerOptions {
 	onStop: () => Promise<void> | void
 	button?: HTMLElement | null
 	target?: Document
+	onContextRequest?: () => Promise<void> | void
 }
 
 const interactiveChatSelector = [
@@ -51,6 +52,7 @@ export function createPushToTalkController({
 	onStop,
 	button,
 	target = typeof document === 'undefined' ? undefined : document,
+	onContextRequest,
 }: PushToTalkControllerOptions): PushToTalkController {
 	let isPressed = false
 
@@ -68,6 +70,7 @@ export function createPushToTalkController({
 		if (isPressed) return
 		isPressed = true
 		try {
+			await onContextRequest?.()
 			await withPushToTalkContext(pushToTalkStartDepthKey, onStart)
 		} catch (error) {
 			isPressed = false
