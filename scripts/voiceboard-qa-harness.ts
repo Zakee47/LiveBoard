@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 
 import { createActionBridge } from '../src/voice/ActionBridge'
+import type { CanvasContextProvider } from '../src/voice/CanvasContextProvider'
 import { createPushToTalkController } from '../src/voice/PushToTalkController'
 import { MockVoiceSessionManager } from '../src/voice/VoiceSessionManager'
 import { realtimeTools } from '../src/voice/tools'
+import type { CanvasSnapshot } from '../src/voice/types'
 import type { TLCreateShapePartial, TLShape, TLShapeId, TLShapePartial } from 'tldraw'
 import type {
 	ConnectShapesAction,
@@ -121,6 +123,18 @@ function existingShape(id: string, x: number, y: number): TLShape {
 	} as unknown as TLShape
 }
 
+const qaSnapshot: CanvasSnapshot = {
+	selectedShapeIds: [],
+	selectedShapes: [],
+	visibleShapes: [],
+	viewportBounds: { x: 0, y: 0, w: 1000, h: 800 },
+	selectionBounds: null,
+	clusters: [],
+	totalShapeCount: 0,
+	omittedShapeCount: 0,
+	generatedAt: Date.parse('2026-05-13T18:00:00Z'),
+}
+
 async function testPushToTalkStateTransitions() {
 	let state: VoiceState = 'idle'
 	const events: string[] = []
@@ -159,11 +173,9 @@ async function testMockRealtimeTextPath() {
 	await manager.connect()
 	assert.equal(manager.state, 'listening')
 	await manager.sendText('Create frontend, API, and Postgres boxes')
-	assert.equal(manager.state, 'listening')
-	manager.disconnect()
 	assert.equal(manager.state, 'idle')
 
-	assert.deepEqual(states, ['listening', 'processing', 'responding', 'listening', 'idle'])
+	assert.deepEqual(states, ['listening', 'processing', 'responding', 'idle'])
 	assert.equal(transcripts[0], 'user:Create frontend, API, and Postgres boxes')
 	assert.match(transcripts[1], /^assistant:Mock realtime session received your prompt/)
 }
@@ -228,6 +240,12 @@ async function testActionBridgeEditorOperations() {
 	}
 	const bridge = createActionBridge({
 		editor: editor as unknown as Parameters<typeof createActionBridge>[0]['editor'],
+		canvasContext: {
+			getSnapshot: async () => qaSnapshot,
+			sendContext: async () => qaSnapshot,
+			onUpdate: () => () => undefined,
+			dispose: () => undefined,
+		} satisfies CanvasContextProvider,
 	})
 
 	const createAction: CreateShapesAction = {
@@ -297,7 +315,36 @@ async function testActionBridgeEditorOperations() {
 	})
 	assert.deepEqual(await bridge.execute({ type: 'critique_canvas', focus: 'canvas' }), {
 		status: 'ok',
-		message: 'Canvas critique is stubbed for the bootstrap scaffold.',
+		message: [
+			'Canvas critique (canvas)',
+			'',
+			'Strengths',
+			'- Context payload captured selection, viewport shapes, off-viewport clusters, and a critique-only PNG screenshot.',
+			'- The current canvas structure is ready for the realtime model to inspect without flooding the prompt with every shape.',
+			'',
+			'Potential improvements',
+			'- Ask for a more specific goal if the critique should focus on hierarchy, visual design, spacing, or content clarity.',
+			'- Use selected-shape details for precise edits and cluster summaries to decide whether to zoom or inspect peripheral groups.',
+			'',
+			'Context payload',
+			[
+				'Canvas context @ 2026-05-13T18:00:00.000Z',
+				'',
+				'Viewport: x=0, y=0, w=1000, h=800',
+				'',
+				'Shapes: 0 total, 0 visible, 0 clustered/off-viewport',
+				'',
+				'Selection: 0 selected',
+				'',
+				'Selected: none',
+				'',
+				'Visible: none',
+				'',
+				'Clusters: none',
+				'',
+				'Screenshot: omitted',
+			].join('\n'),
+		].join('\n'),
 		shapeIds: undefined,
 	})
 	assert.deepEqual(calls, [
