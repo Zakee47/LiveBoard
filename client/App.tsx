@@ -26,7 +26,7 @@ import { createActionBridge } from '../src/voice/ActionBridge'
 import { createCanvasContextProvider } from '../src/voice/CanvasContextProvider'
 import { createPushToTalkController } from '../src/voice/PushToTalkController'
 import { createVoiceSessionManager } from '../src/voice/VoiceSessionManager'
-import type { TranscriptEntry, VoiceState } from '../src/voice/types'
+import type { TranscriptEntry, VoiceState, VoiceToolResult } from '../src/voice/types'
 
 // Customize tldraw's styles to play to the agent's strengths
 DefaultSizeStyle.setDefaultValue('s')
@@ -507,8 +507,9 @@ function formatTranscriptTime(createdAt: number) {
 	}).format(createdAt)
 }
 
-function compactFunctionSummary(result: string) {
-	return result.endsWith('.') ? result.slice(0, -1) : result
+function compactFunctionSummary(result: string | VoiceToolResult) {
+	const message = typeof result === 'string' ? result : result.message
+	return message.endsWith('.') ? message.slice(0, -1) : message
 }
 
 const voiceStates: VoiceState[] = ['idle', 'listening', 'processing', 'responding']
